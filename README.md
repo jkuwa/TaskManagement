@@ -17,13 +17,15 @@ PCのブラウザで動作します。
 - カードの追加・編集・削除
 - カードへの説明文・期限・優先度の設定（任意）
 - ドラッグ&ドロップでのカードの列移動
-- ブラウザへの自動保存（再読み込みしてもデータが残る）
+- DBへの自動保存（再読み込みや再起動をしてもデータが残る）
 
 ※ カリキュラムの進行に合わせて追加・変更します。
 
 ## 使用技術
 
-- HTML / CSS / JavaScript
+- フロントエンド：React
+- バックエンド：Java / Spring Boot
+- DB：未定
 - Git / GitHub
 - Claude Code
 
@@ -33,5 +35,7 @@ PCのブラウザで動作します。
 TaskManagement/
 ├── README.md
 └── docs/
-    └── requirements.md   # 要件定義書
+    ├── requirements.md   # 要件定義書
+    ├── acceptance.md     # 受け入れ基準
+    └── spec.md           # 詳細仕様メモ
 ```
