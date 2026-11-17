@@ -1,0 +1,3 @@
+// Gradle のプロジェクト全体の設定ファイル
+// ここではプロジェクトの名前だけを決めている。ビルドしてできるファイル名（taskmanagement-0.0.1-SNAPSHOT.jar など）に使われる。
+rootProject.name = 'taskmanagement'
