@@ -1,3 +1,9 @@
+# Git でファイルを扱うときのルールを決めるファイル
+# Mac・Linux と Windows では改行コードが違うため、どの OS でも正しく動くようにそろえている。
+
+# gradlew（Mac・Linux 用のスクリプト）は LF（Mac・Linux の改行）にする。CRLF だと実行できなくなる
 /gradlew text eol=lf
+# .bat（Windows 用のスクリプト）は CRLF（Windows の改行）にする
 *.bat text eol=crlf
+# .jar はテキストではないので、改行コードを変換しない
 *.jar binary

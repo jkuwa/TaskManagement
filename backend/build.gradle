@@ -1,28 +1,42 @@
+// ビルド設定ファイル
+// 「どの Java で動かすか」「どのライブラリを使うか」など、ビルドに必要な設定をまとめたもの。
+// ./gradlew test や ./gradlew bootRun を実行すると、Gradle がこのファイルを読んで処理する。
+
+// 使う Gradle のプラグイン（Gradle に機能を追加する部品）
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '4.1.2'
-	id 'io.spring.dependency-management' version '1.1.7'
+	id 'java' // Java のソースコードをコンパイルできるようにする
+	id 'org.springframework.boot' version '4.1.2' // Spring Boot 用の機能（bootRun で起動する など）を追加する
+	id 'io.spring.dependency-management' version '1.1.7' // Spring Boot に合うライブラリのバージョンを自動で決めてくれる
 }
 
+// このプロジェクトの識別情報（ライブラリとして公開する場合の名前とバージョン）
 group = 'com.example'
-version = '0.0.1-SNAPSHOT'
+version = '0.0.1-SNAPSHOT' // SNAPSHOT は「開発中」という意味
 
+// 使う Java のバージョン
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(25)
 	}
 }
 
+// ライブラリをダウンロードする場所（Maven Central は Java のライブラリが集まっている公式の置き場）
 repositories {
 	mavenCentral()
 }
 
+// 使うライブラリの一覧
+// バージョンを書いていないものは、dependency-management プラグインが Spring Boot に合うものを選ぶ
 dependencies {
+	// Web API を作るためのライブラリ（Spring MVC と、サーバーの Tomcat が含まれる）
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// テストを書くためのライブラリ（JUnit、MockMvc などが含まれる）
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	// テストを実行するときだけ必要な、JUnit の実行用ライブラリ
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// ./gradlew test を実行したときに、JUnit 5 でテストを動かす設定
 tasks.named('test') {
 	useJUnitPlatform()
 }

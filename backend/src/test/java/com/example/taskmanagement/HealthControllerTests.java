@@ -9,12 +9,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.web.servlet.MockMvc;
 
+/**
+ * HealthController（/api/health）のテスト。
+ *
+ * <p>@WebMvcTest を付けると、Web の部分（指定したコントローラー）だけを組み立ててテストする。
+ * アプリ全体を起動しないので、速く動く。
+ */
 @WebMvcTest(HealthController.class)
 class HealthControllerTests {
 
+	// MockMvc：実際にサーバーを起動せずに、リクエストを送ったことにして結果を確かめられる道具
 	@Autowired
 	private MockMvc mockMvc;
 
+	/**
+	 * GET /api/health を送ると、成功（200 OK）が返り、JSON の status が "ok" であることを確かめる。
+	 */
 	@Test
 	void healthReturnsOk() throws Exception {
 		mockMvc.perform(get("/api/health"))
