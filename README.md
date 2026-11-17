@@ -34,6 +34,7 @@ PCのブラウザで動作します。
 ```
 TaskManagement/
 ├── README.md
+├── backend/              # バックエンド（Spring Boot）
 ├── mockup/               # 画面イメージ確認用のモックアップ（index.html をブラウザで開く）
 └── docs/
     ├── requirements.md   # 要件定義書（概要）
@@ -42,4 +43,22 @@ TaskManagement/
     ├── database.md       # データベース設計
     ├── acceptance.md     # 受け入れ基準
     └── spec.md           # 詳細仕様メモ
+```
+
+## バックエンドの起動方法
+
+Java 25（JDK）が必要です。Gradle は同梱の Gradle Wrapper（`./gradlew`）を使うため、別途インストールは不要です。
+
+```sh
+cd backend
+./gradlew bootRun
+```
+
+起動後、`http://localhost:8080/api/health` にアクセスして `{"status":"ok"}` が返れば動作しています。
+
+テストの実行：
+
+```sh
+cd backend
+./gradlew test
 ```
