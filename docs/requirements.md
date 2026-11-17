@@ -118,9 +118,10 @@ DB で管理するのは「カード（タスク）」と「サブタスク」�
 
 | 項目 | 内容 |
 |---|---|
-| フロントエンド | React |
-| バックエンド | Java / Spring Boot |
-| DB | 未定（課題動画を確認して決める） |
+| フロントエンド | React（TypeScript） |
+| バックエンド | Java / Spring Boot（ビルドツール：Gradle） |
+| DBアクセス | MyBatis |
+| DB | PostgreSQL（自分のPCでの起動方法は未定） |
 | バージョン管理 | Git / GitHub（機能ごとにブランチを作り、プルリクエストでマージする） |
 | 開発支援 | Claude Code |
 | 期限 | カリキュラムの進み具合に合わせる |

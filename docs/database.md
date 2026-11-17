@@ -12,19 +12,19 @@ erDiagram
     TASKS ||--o{ SUBTASKS : "持つ"
 
     TASKS {
-        int id PK "主キー"
+        integer id PK "主キー"
         varchar title "タイトル"
         text description "説明文"
         varchar priority "優先度"
         date due_date "期限"
         varchar status "状態"
-        int position "列の中での並び順"
+        integer position "列の中での並び順"
         timestamp created_at "作成日時"
         timestamp updated_at "更新日時"
     }
     SUBTASKS {
-        int id PK "主キー"
-        int task_id FK "親のカードのID"
+        integer id PK "主キー"
+        integer task_id FK "親のカードのID"
         varchar title "内容"
         boolean done "完了したか"
         timestamp created_at "作成日時"
@@ -40,19 +40,21 @@ erDiagram
 
 ## テーブル定義
 
-型は MySQL の書き方で仮に書いている。DB が決まったら、その DB の型に合わせて直す。
+型は PostgreSQL の書き方で書いている。
+
+`updated_at` は、PostgreSQL では行を更新しても自動では変わらない。更新するときに、SQL で現在時刻を入れる。
 
 ### tasks（カード）
 
 | カラム名 | 型 | 必須 | デフォルト | 説明 |
 |---|---|---|---|---|
-| id | INT (AUTO_INCREMENT) | YES | - | 主キー |
+| id | INTEGER GENERATED ALWAYS AS IDENTITY | YES | - | 主キー（自動で番号を振る） |
 | title | VARCHAR(255) | YES | - | タイトル |
 | description | TEXT | NO | NULL | 説明文 |
 | priority | VARCHAR(10) | NO | NULL | 優先度（high / medium / low） |
 | due_date | DATE | NO | NULL | 期限 |
 | status | VARCHAR(20) | YES | 'todo' | 状態（todo / in_progress / done） |
-| position | INT | YES | 0 | 列の中での並び順 |
+| position | INTEGER | YES | 0 | 列の中での並び順 |
 | created_at | TIMESTAMP | YES | CURRENT_TIMESTAMP | 作成日時 |
 | updated_at | TIMESTAMP | YES | CURRENT_TIMESTAMP | 更新日時 |
 
@@ -68,11 +70,11 @@ erDiagram
 
 | カラム名 | 型 | 必須 | デフォルト | 説明 |
 |---|---|---|---|---|
-| id | INT (AUTO_INCREMENT) | YES | - | 主キー |
-| task_id | INT | YES | - | 外部キー（tasks.id） |
+| id | INTEGER GENERATED ALWAYS AS IDENTITY | YES | - | 主キー（自動で番号を振る） |
+| task_id | INTEGER | YES | - | 外部キー（tasks.id） |
 | title | VARCHAR(255) | YES | - | 内容 |
 | done | BOOLEAN | YES | FALSE | 完了したか |
 | created_at | TIMESTAMP | YES | CURRENT_TIMESTAMP | 作成日時 |
 | updated_at | TIMESTAMP | YES | CURRENT_TIMESTAMP | 更新日時 |
 
-カードを削除したときは、そのカードのサブタスクもあわせて削除する。
+カードを削除したときは、そのカードのサブタスクもあわせて削除する（外部キーに `ON DELETE CASCADE` を付ける）。
