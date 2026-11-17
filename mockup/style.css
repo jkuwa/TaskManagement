@@ -1,0 +1,264 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  color: #1f2937;
+  background: #eef2f7;
+}
+
+/* ヘッダー */
+.header {
+  padding: 16px 24px;
+  background: #2563eb;
+  color: #fff;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* ボード：3列を横並び */
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 24px;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  background: #dfe5ee;
+  border-radius: 10px;
+  transition: background-color 0.15s, outline-color 0.15s;
+  outline: 2px dashed transparent;
+}
+
+/* ドロップ先のハイライト */
+.column.is-drop-target {
+  background: #c9d8f5;
+  outline-color: #2563eb;
+}
+
+.column-title {
+  margin: 0 4px 4px;
+  font-size: 15px;
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 40px;
+}
+
+/* カード */
+.card {
+  padding: 10px 12px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+}
+
+.card:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* カードが入る位置の線 */
+.drop-indicator {
+  height: 3px;
+  margin: -2px 0;
+  border-radius: 2px;
+  background: #2563eb;
+}
+
+/* ドラッグ中のカード */
+.card.is-dragging {
+  opacity: 0.4;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: bold;
+}
+
+.badge-high {
+  background: #fde2e2;
+  color: #b91c1c;
+}
+
+.badge-medium {
+  background: #fdf0d5;
+  color: #a16207;
+}
+
+.badge-low {
+  background: #dcf3e4;
+  color: #15803d;
+}
+
+.due {
+  color: #4b5563;
+}
+
+.desc-icon {
+  margin-left: auto;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.due::before {
+  content: "期限 ";
+  color: #6b7280;
+}
+
+/* カード追加 */
+.add-button {
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #4b5563;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.add-button:hover {
+  background: #cfd7e3;
+}
+
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.add-input {
+  padding: 8px 10px;
+  border: 1px solid #9ca3af;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.add-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ボタン */
+.btn {
+  padding: 6px 16px;
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn-primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn-danger {
+  border-color: #dc2626;
+  background: #fff;
+  color: #dc2626;
+}
+
+.btn-text {
+  border-color: transparent;
+  background: transparent;
+}
+
+/* カード詳細画面 */
+.detail {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  padding: 24px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.detail::backdrop {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.detail-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: bold;
+  color: #4b5563;
+}
+
+.field input,
+.field textarea,
+.field select {
+  padding: 8px 10px;
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 14px;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field-row {
+  display: flex;
+  gap: 16px;
+}
+
+.detail-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}

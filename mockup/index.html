@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>タスク管理ボード（モックアップ）</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <h1>タスク管理ボード</h1>
+    <p class="note">※ 画面イメージ確認用のモックアップです。カードのクリック・詳細画面の開閉・ドラッグ&ドロップだけ試せます（保存はされません）。</p>
+  </header>
+
+  <main class="board">
+    <!-- 未着手 -->
+    <section class="column" data-status="todo">
+      <h2 class="column-title">未着手</h2>
+      <div class="card-list">
+        <article class="card" draggable="true"
+          data-title="資料を作る" data-description="来週の定例で使う説明資料。構成を考えてから下書きする。"
+          data-due="2026-11-20" data-priority="high">
+          <p class="card-title">資料を作る</p>
+          <div class="card-meta">
+            <span class="badge badge-high">高</span>
+            <span class="due">11/20</span>
+            <span class="desc-icon" title="説明文あり" aria-label="説明文あり">≡</span>
+          </div>
+        </article>
+        <article class="card" draggable="true"
+          data-title="期限だけ設定したカード" data-description="" data-due="2026-11-30" data-priority="">
+          <p class="card-title">期限だけ設定したカード</p>
+          <div class="card-meta">
+            <span class="due">11/30</span>
+          </div>
+        </article>
+        <article class="card" draggable="true"
+          data-title="タイトルが長いカードの表示を確認するためのサンプルです。折り返して表示されるかどうかを見ます"
+          data-description="" data-due="" data-priority="low">
+          <p class="card-title">タイトルが長いカードの表示を確認するためのサンプルです。折り返して表示されるかどうかを見ます</p>
+          <div class="card-meta">
+            <span class="badge badge-low">低</span>
+          </div>
+        </article>
+      </div>
+      <!-- カード追加：入力欄を開いた状態の見た目 -->
+      <form class="add-form" onsubmit="return false;">
+        <input type="text" class="add-input" maxlength="100" placeholder="タイトルを入力">
+        <div class="add-actions">
+          <button type="button" class="btn btn-primary">追加</button>
+          <button type="button" class="btn btn-text">キャンセル</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 進行中 -->
+    <section class="column" data-status="in_progress">
+      <h2 class="column-title">進行中</h2>
+      <div class="card-list">
+        <article class="card" draggable="true"
+          data-title="API調査" data-description="Spring Boot で REST API を作る方法を調べる。" data-due="" data-priority="medium">
+          <p class="card-title">API調査</p>
+          <div class="card-meta">
+            <span class="badge badge-medium">中</span>
+            <span class="desc-icon" title="説明文あり" aria-label="説明文あり">≡</span>
+          </div>
+        </article>
+      </div>
+      <!-- カード追加：ボタンだけの見た目 -->
+      <button type="button" class="add-button">＋ カード追加</button>
+    </section>
+
+    <!-- 完了 -->
+    <section class="column" data-status="done">
+      <h2 class="column-title">完了</h2>
+      <div class="card-list">
+        <article class="card" draggable="true"
+          data-title="環境構築" data-description="" data-due="" data-priority="">
+          <p class="card-title">環境構築</p>
+        </article>
+      </div>
+      <button type="button" class="add-button">＋ カード追加</button>
+    </section>
+  </main>
+
+  <!-- カード詳細画面（ポップアップ） -->
+  <dialog class="detail" id="detail">
+    <form method="dialog" class="detail-form">
+      <label class="field">
+        <span class="field-label">タイトル</span>
+        <input type="text" id="detail-title" maxlength="100">
+      </label>
+      <label class="field">
+        <span class="field-label">説明文</span>
+        <textarea id="detail-description" rows="5" placeholder="説明を入力（任意）"></textarea>
+      </label>
+      <div class="field-row">
+        <label class="field">
+          <span class="field-label">期限</span>
+          <input type="date" id="detail-due">
+        </label>
+        <label class="field">
+          <span class="field-label">優先度</span>
+          <select id="detail-priority">
+            <option value="">なし</option>
+            <option value="high">高</option>
+            <option value="medium">中</option>
+            <option value="low">低</option>
+          </select>
+        </label>
+      </div>
+      <div class="detail-actions">
+        <button type="button" class="btn btn-danger" id="detail-delete">削除</button>
+        <button type="button" class="btn" id="detail-close">閉じる</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>
