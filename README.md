@@ -23,9 +23,9 @@ PCのブラウザで動作します。
 
 ## 使用技術
 
-- フロントエンド：React
-- バックエンド：Java / Spring Boot
-- DB：未定
+- フロントエンド：React（TypeScript、Vite、dnd-kit）
+- バックエンド：Java / Spring Boot（Gradle、MyBatis）
+- DB：PostgreSQL
 - Git / GitHub
 - Claude Code
 
