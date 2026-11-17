@@ -23,7 +23,7 @@ PCのブラウザで動作します。
 
 ## 使用技術
 
-- フロントエンド：React（TypeScript）
+- フロントエンド：React（TypeScript、Vite、dnd-kit）
 - バックエンド：Java / Spring Boot（Gradle、MyBatis）
 - DB：PostgreSQL
 - Git / GitHub
