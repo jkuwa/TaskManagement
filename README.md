@@ -35,7 +35,10 @@ PCのブラウザで動作します。
 TaskManagement/
 ├── README.md
 └── docs/
-    ├── requirements.md   # 要件定義書
+    ├── requirements.md   # 要件定義書（概要）
+    ├── usecases.md       # ユースケース
+    ├── screens.md        # 画面設計
+    ├── database.md       # データベース設計
     ├── acceptance.md     # 受け入れ基準
     └── spec.md           # 詳細仕様メモ
 ```
