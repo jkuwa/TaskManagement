@@ -1,4 +1,4 @@
-package com.example.taskmanagement;
+package io.github.jkuwa.taskmanagement;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -10,8 +10,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  *
  * <p>@SpringBootApplication を付けると、Spring Boot が次のことを自動で行う。
  * <ul>
- *   <li>このクラスと同じパッケージ（com.example.taskmanagement）とその下にあるクラスを探し、
- *       @RestController などが付いたクラスを使えるように準備する</li>
+ *   <li>このクラスと同じパッケージ（io.github.jkuwa.taskmanagement）とその下にあるクラスを探し、
+ *       {@code @RestController} などが付いたクラスを使えるように準備する</li>
  *   <li>build.gradle に書いたライブラリに合わせて設定を行う（例：Web のライブラリがあればサーバーの Tomcat を起動する）</li>
  * </ul>
  *

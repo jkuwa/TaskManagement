@@ -1,4 +1,4 @@
-package com.example.taskmanagement;
+package io.github.jkuwa.taskmanagement;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

@@ -1,4 +1,4 @@
-package com.example.taskmanagement;
+package io.github.jkuwa.taskmanagement;
 
 import java.util.Map;
 
@@ -12,10 +12,13 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>ブラウザで http://localhost:8080/api/health を開くと {"status":"ok"} が返る。
  * 返ってくれば、アプリが起動してリクエストを受け付けられる状態だと分かる。
  *
- * <p>@RestController を付けると、このクラスが「リクエストを受け取って、データ（JSON）を返すクラス」になる。
+ * <p>@RestController を付けることで、このクラスが「リクエストを受け取って、データ（JSON）を返すクラス」として認識されるようになる。
+ * 
+ * <p>@RequestMapping("/api") を付けることで、このクラスの URL はすべて /api から始まることを示す。
+ * /api は必須ではないが、API(バックエンド)をまとめておいた方が管理が楽になる。
  */
 @RestController
-@RequestMapping("/api") // このクラスの URL はすべて /api から始まる
+@RequestMapping("/api")
 public class HealthController {
 
 	/**
