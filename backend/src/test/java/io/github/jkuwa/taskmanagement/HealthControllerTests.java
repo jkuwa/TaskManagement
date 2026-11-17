@@ -28,7 +28,7 @@ class HealthControllerTests {
 	 * GET /api/health を送ると、成功（200 OK）が返り、JSON の status が "ok" であることを確かめる。
 	 */
 	@Test  // テストメソッドであることを示すアノテーション
-	void healthReturnsOk() throws Exception {  // throws Exception：例外を無視するため
+	void healthReturnsOk() throws Exception {  // throws Exception：例外が起きたらそのまま投げてテストを失敗にする
 		mockMvc.perform(get("/api/health"))  // リクエストを送る
 			.andExpect(status().isOk())  // ステータスコードが 200 OK であることを確かめる
 			.andExpect(jsonPath("$.status").value("ok"));  // JSON の status が "ok" であることを確かめる
