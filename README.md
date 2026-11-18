@@ -24,8 +24,8 @@ PCのブラウザで動作します。
 ## 使用技術
 
 - フロントエンド：React（TypeScript、Vite、dnd-kit）
-- バックエンド：Java / Spring Boot（Gradle、MyBatis）
-- DB：PostgreSQL
+- バックエンド：Java / Spring Boot（Gradle、Spring Data JPA）
+- DB：PostgreSQL（Docker Compose で起動）
 - Git / GitHub
 - Claude Code
 
@@ -34,6 +34,7 @@ PCのブラウザで動作します。
 ```
 TaskManagement/
 ├── README.md
+├── compose.yaml          # 開発用 PostgreSQL の設定（Docker Compose）
 ├── backend/              # バックエンド（Spring Boot）
 ├── mockup/               # 画面イメージ確認用のモックアップ（index.html をブラウザで開く）
 └── docs/
@@ -47,7 +48,24 @@ TaskManagement/
 
 ## バックエンドの起動方法
 
-Java 25（JDK）が必要です。Gradle は同梱の Gradle Wrapper（`./gradlew`）を使うため、別途インストールは不要です。
+次のものが必要です。
+
+- Java 25（JDK）
+- Docker Desktop（PostgreSQL をコンテナで動かすため）
+
+Gradle は同梱の Gradle Wrapper（`./gradlew`）を使うため、別途インストールは不要です。
+
+### 1. DB（PostgreSQL）を起動する
+
+Docker Desktop を起動してから、リポジトリ直下で実行します。
+
+```sh
+docker compose up -d
+```
+
+`docker compose ps` で `healthy` と表示されれば準備完了です。
+
+### 2. バックエンドを起動する
 
 ```sh
 cd backend
@@ -56,7 +74,22 @@ cd backend
 
 起動後、`http://localhost:8080/api/health` にアクセスして `{"status":"ok"}` が返れば動作しています。
 
-テストの実行：
+起動時に `Task` クラス（`@Entity`）をもとに `tasks` テーブルが自動で作られます（`spring.jpa.hibernate.ddl-auto=update`）。テーブルの中身は次のコマンドで確認できます。
+
+```sh
+docker compose exec db psql -U taskmanagement -c '\d tasks'
+```
+
+### 3. DB を停止する
+
+```sh
+docker compose down      # 停止（データは残る）
+docker compose down -v   # 停止してデータも削除する
+```
+
+### テストの実行
+
+テストでは Testcontainers がテスト用の PostgreSQL を自動で起動します。Docker Desktop を起動した状態で実行してください（`docker compose up` は不要です）。
 
 ```sh
 cd backend

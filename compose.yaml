@@ -1,0 +1,33 @@
+# Docker Compose の設定ファイル
+# 開発用の PostgreSQL をコンテナで動かす。
+#
+# 起動：docker compose up -d   （-d はバックグラウンドで動かすという意味）
+# 停止：docker compose down    （データは残る。データも消すときは docker compose down -v）
+
+services:
+  # サービス名。docker compose exec db ... のように、コマンドでこの名前を使う
+  db:
+    image: postgres:18 # 使う PostgreSQL のイメージとバージョン
+    container_name: taskmanagement-db
+    environment:
+      # 最初に起動したときに、このDB名・ユーザー・パスワードで作られる
+      # ※ ローカル開発専用の値。本番では使わない
+      POSTGRES_DB: taskmanagement
+      POSTGRES_USER: taskmanagement
+      POSTGRES_PASSWORD: taskmanagement
+    ports:
+      - "5432:5432" # 「Mac側のポート:コンテナ側のポート」。localhost:5432 でつながるようにする
+    volumes:
+      # DBのデータをボリュームに保存する。コンテナを消してもデータが残る
+      # PostgreSQL 18 以降のイメージは /var/lib/postgresql の下にデータを置く
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      # DBが接続を受け付けられる状態かを定期的に確認する（docker compose ps で healthy と表示される）
+      test: ["CMD-SHELL", "pg_isready -U taskmanagement -d taskmanagement"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+# データを保存するボリューム（Docker が管理する保存場所）
+volumes:
+  db-data:
