@@ -30,8 +30,16 @@ repositories {
 dependencies {
 	// Web API を作るためのライブラリ（Spring MVC と、サーバーの Tomcat が含まれる）
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// DB を Java のクラスとして扱うためのライブラリ（Spring Data JPA と、その中身の Hibernate が含まれる）
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// PostgreSQL に接続するためのドライバー。アプリを動かすときだけ必要なので runtimeOnly にする
+	runtimeOnly 'org.postgresql:postgresql'
 	// テストを書くためのライブラリ（JUnit、MockMvc などが含まれる）
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	// Testcontainers：テストのときに Docker で PostgreSQL を自動で起動して使えるようにする
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+	testImplementation 'org.testcontainers:testcontainers-postgresql'
 	// テストを実行するときだけ必要な、JUnit の実行用ライブラリ
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
