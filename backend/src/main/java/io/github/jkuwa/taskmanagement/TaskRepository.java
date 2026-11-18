@@ -4,7 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
  * tasks テーブルを読み書きするためのインターフェース。
- * JPAリポジトリと呼ばれる。DBに対して、どのようなコマンドを実行するか制御するためのもの。
+ * JPAリポジトリと呼ばれる。DBを読み書きするための窓口。
  *
  * エンティティごとにリポジトリを作成。
  * Publicなインターフェースは１ファイルに１つまで。ファイル名はその名前と同じにする。
