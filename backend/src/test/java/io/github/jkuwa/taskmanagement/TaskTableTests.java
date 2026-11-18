@@ -23,7 +23,7 @@ class TaskTableTests {
 
 	/**
 	 * tasks テーブルに docs/database.md どおりの9つの列があることを確かめる。
-	 *
+	 * {@code List<String> columns}は、文字列のリストを入れる columns という変数
 	 * {@code queryForList(SQL, 型)}は、「SQLを実行して、指定した型のリストで結果を返す」メソッド。
 	 * <p>information_schema.columns は、DB にあるテーブルの列の情報が入っている PostgreSQL の表。
 	 * 
