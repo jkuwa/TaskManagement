@@ -80,7 +80,28 @@ cd backend
 docker compose exec db psql -U taskmanagement -c '\d tasks'
 ```
 
-### 3. DB を停止する
+### 3. サンプルデータを入れて API を確認する
+
+バックエンドを起動して `tasks` テーブルができたあと、リポジトリ直下で次を実行するとサンプルのカードが入ります。
+`tasks` テーブルを空にしてから入れ直すので、手で追加したカードは消えます。
+
+```sh
+docker compose exec -T db psql -U taskmanagement -d taskmanagement < backend/src/main/resources/db/sample-data.sql
+```
+
+カードを読み取る API は次のとおりです。
+
+| メソッド・URL | 内容 |
+| --- | --- |
+| `GET /api/tasks` | すべてのカードを並び順（position → id）で返す |
+| `GET /api/tasks/{id}` | 指定した id のカードを返す。存在しなければ 404 |
+
+```sh
+curl http://localhost:8080/api/tasks
+curl http://localhost:8080/api/tasks/1
+```
+
+### 4. DB を停止する
 
 ```sh
 docker compose down      # 停止（データは残る）
