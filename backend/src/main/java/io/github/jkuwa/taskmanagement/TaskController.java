@@ -2,12 +2,10 @@ package io.github.jkuwa.taskmanagement;
 
 import java.util.List;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * カード（タスク）を読み取るための API。
@@ -17,6 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
  *   <li>GET /api/tasks/{id}：指定した id のカードを1件返す</li>
  * </ul>
  *
+ * <p>Controller はリクエストの受け渡しだけを行い、実際の処理は TaskService に任せる。
+ *
  * <p>戻り値の Task は、Spring Boot が getter（getTitle() など）をもとに自動で JSON に変換する。
  * 例：{"id":1,"title":"…","dueDate":"2026-11-20","status":"todo",…}
  */
@@ -24,17 +24,26 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/tasks") // このクラスの URL はすべて /api/tasks から始まる
 public class TaskController {
 
-	private final TaskRepository taskRepository; // final：一度入れたら変更しない
+	// フィールド
+	private final TaskService taskService; // final：一度入れたら変更しない
 
 	/**
-	 * コンストラクタで TaskRepository を受け取る（コンストラクタインジェクション）。
-	 * Spring が TaskRepository の中身を自動で作って渡してくれる。
+	 * final：オブジェクトを作り終えるまでに値を入れる決まり。
+	 * コンストラクタを省略してフィールドに直接 @Autowired をつける書き方だと、一旦値のないオブジェクトが作られてしまうため final をつけられない。
+	 * 
+	 * TaskService：型
+	 * Javaでは、自分で作ったクラスもそのまま型として使える。
+	 * ここでは「この変数には、TaskService クラスから作ったオブジェクトが入る」という意味。
+	 * 
+	 * コンストラクタで TaskService を受け取る（コンストラクタインジェクション）。
+	 * Spring が TaskService を自動で作って渡してくれる。
 	 * コンストラクタが1つだけなら @Autowired は書かなくてよい。
+	 * （テストクラスはJUnitが実行するため、省略してしまうと Spring に作ってもらえない。）
 	 *
-	 * @param taskRepository tasks テーブルを読み書きするリポジトリ
+	 * @param taskService カードに関する処理をまとめたクラス
 	 */
-	public TaskController(TaskRepository taskRepository) {
-		this.taskRepository = taskRepository;
+	public TaskController(TaskService taskService) {
+		this.taskService = taskService;
 	}
 
 	/**
@@ -45,23 +54,19 @@ public class TaskController {
 	 */
 	@GetMapping
 	public List<Task> findAll() {
-		return taskRepository.findAllByOrderByPositionAscIdAsc();
+		return taskService.findAll();
 	}
 
 	/**
 	 * GET /api/tasks/{id} にアクセスされたときに呼ばれる（例：/api/tasks/1）。
-	 *
-	 * <p>@PathVariable で、URL の {id} の部分を引数 id として受け取る。
-	 * findById は Optional（値がないかもしれない入れ物）を返すので、
-	 * 見つからなければ orElseThrow で例外を投げ、404 Not Found を返す。
+	 * {@code @PathVariable} で、URL の {id} の部分を引数 id として受け取る。
+	 * 見つからないときは TaskService が例外を投げ、404 Not Found が返る。
 	 *
 	 * @param id 取得したいカードの id
 	 * @return 見つかったカード
-	 * @throws ResponseStatusException 見つからなかったとき（404 Not Found）
 	 */
 	@GetMapping("/{id}")
 	public Task findById(@PathVariable Integer id) {
-		return taskRepository.findById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+		return taskService.findById(id);
 	}
 }
