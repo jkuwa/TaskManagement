@@ -36,6 +36,7 @@ TaskManagement/
 ├── README.md
 ├── compose.yaml          # 開発用 PostgreSQL の設定（Docker Compose）
 ├── backend/              # バックエンド（Spring Boot）
+├── frontend/             # フロントエンド（React + TypeScript + Vite）
 ├── mockup/               # 画面イメージ確認用のモックアップ（index.html をブラウザで開く）
 └── docs/
     ├── requirements.md   # 要件定義書（概要）
@@ -115,4 +116,36 @@ docker compose down -v   # 停止してデータも削除する
 ```sh
 cd backend
 ./gradlew test
+```
+
+## フロントエンドの起動方法
+
+次のものが必要です。
+
+- Node.js（v22.12 以上）
+
+### 1. バックエンドを起動する
+
+先に「バックエンドの起動方法」の手順で DB とバックエンドを起動しておきます。画面に表示するカードがほしいときは、サンプルデータも入れておきます。
+
+### 2. フロントエンドを起動する
+
+```sh
+cd frontend
+npm install   # 初回だけ
+npm run dev
+```
+
+`http://localhost:5173` を開くと、カードが「未着手」「進行中」「完了」の3列に表示されます。
+バックエンドが動いていないときは「データを読み込めませんでした」と表示されます。
+
+開発サーバーは `/api` から始まるリクエストを `http://localhost:8080`（バックエンド）へ転送します（`frontend/vite.config.ts` の `server.proxy`）。そのため、バックエンドに CORS の設定はしていません。
+
+### チェック・テスト・ビルド
+
+```sh
+cd frontend
+npm run lint    # コードの書き方のチェック（oxlint）
+npm run test    # 単体テスト（Vitest）
+npm run build   # 型チェックと本番用のビルド（dist/ に出力）
 ```
