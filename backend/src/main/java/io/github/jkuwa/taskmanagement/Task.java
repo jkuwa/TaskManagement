@@ -103,14 +103,21 @@ public class Task {
 	}
 
 	/**
-	 * タイトルを指定してカードを作る。ほかの項目は初期値（status は todo、position は 0）になる。
+	 * タイトル・状態（列）・並び順を指定してカードを作る。カードを追加する API で使う。
 	 * Javaのコンストラクタはクラス名と同じ名前にする決まり。
-	 * アプリを使用する場合は引数にテキストが入るため、このコンストラクタが呼ばれ、オブジェクトを生成する。
+	 * 同じ名前のコンストラクタでも、引数の数や型が違えば複数作れる（オーバーロード）。
+	 * ここでは引数なしのもの（JPA 用）と、この3つの引数を取るものの2つがある。
 	 *
-	 * @param title タイトル
+	 * <p>説明文・期限・優先度は未設定（null）で作る。あとから詳細画面で設定する。
+	 *
+	 * @param title    タイトル
+	 * @param status   状態（todo / in_progress / done）
+	 * @param position 列の中での並び順
 	 */
-	public Task(String title) {
+	public Task(String title, String status, Integer position) {
 		this.title = title;
+		this.status = status;
+		this.position = position;
 	}
 
 	// ---- getter（値を取り出すメソッド）----

@@ -125,3 +125,71 @@ body {
   color: #6b7280;
   font-size: 14px;
 }
+
+/* カード追加 */
+.add-button {
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #4b5563;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.add-button:hover {
+  background: #cfd7e3;
+}
+
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.add-input {
+  padding: 8px 10px;
+  border: 1px solid #9ca3af;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.add-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 入力欄の下に出すエラーメッセージ */
+.form-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+/* ボタン */
+.btn {
+  padding: 6px 16px;
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn-text {
+  border-color: transparent;
+  background: transparent;
+}

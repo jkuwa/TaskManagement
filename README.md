@@ -90,16 +90,18 @@ docker compose exec db psql -U taskmanagement -c '\d tasks'
 docker compose exec -T db psql -U taskmanagement -d taskmanagement < backend/src/main/resources/db/sample-data.sql
 ```
 
-カードを読み取る API は次のとおりです。
+カードの API は次のとおりです。
 
 | メソッド・URL | 内容 |
 | --- | --- |
 | `GET /api/tasks` | すべてのカードを並び順（position → id）で返す |
 | `GET /api/tasks/{id}` | 指定した id のカードを返す。存在しなければ 404 |
+| `POST /api/tasks` | カードを列の一番下に追加し、201 で作ったカードを返す。本文は `{"title":"…","status":"todo"}`（status は `todo` / `in_progress` / `done`）。タイトルが空・空白だけ・101文字以上、または status が正しくなければ 400 |
 
 ```sh
 curl http://localhost:8080/api/tasks
 curl http://localhost:8080/api/tasks/1
+curl -X POST http://localhost:8080/api/tasks -H 'Content-Type: application/json' -d '{"title":"資料を作る","status":"todo"}'
 ```
 
 ### 4. DB を停止する
