@@ -1,6 +1,7 @@
 package io.github.jkuwa.taskmanagement;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -40,4 +41,22 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
 	 * @return カードのリスト。1件もなければ空のリスト
 	 */
 	List<Task> findAllByOrderByPositionAscIdAsc();
+
+	/**
+	 * 指定した列（status）の中で、position が一番大きい（一番下の）カードを1件取得する。
+	 * 新しいカードを列の一番下に追加するときに、次の position を決めるために使う。
+	 *
+	 * <ul>
+	 *   <li>findTop：先頭の1件だけを取得する</li>
+	 *   <li>ByStatus：status が引数と同じものに絞る</li>
+	 *   <li>OrderByPositionDesc：position の大きい順（Desc＝降順）</li>
+	 * </ul>
+	 * 実行される SQL のイメージ：SELECT * FROM tasks WHERE status = ? ORDER BY position DESC LIMIT 1
+	 *
+	 * <p>列にカードが1枚もないこともあるので、Optional（値がないかもしれない入れ物）で返す。
+	 *
+	 * @param status 列（todo / in_progress / done）
+	 * @return 一番下のカード。列が空なら空の Optional
+	 */
+	Optional<Task> findTopByStatusOrderByPositionDesc(String status);
 }

@@ -113,6 +113,20 @@ public class Task {
 		this.title = title;
 	}
 
+	/**
+	 * タイトル・状態（列）・並び順を指定してカードを作る。カードを追加する API で使う。
+	 * 同じ名前のコンストラクタでも、引数の数や型が違えば複数作れる（オーバーロード）。
+	 *
+	 * @param title    タイトル
+	 * @param status   状態（todo / in_progress / done）
+	 * @param position 列の中での並び順
+	 */
+	public Task(String title, String status, Integer position) {
+		this.title = title;
+		this.status = status;
+		this.position = position;
+	}
+
 	// ---- getter（値を取り出すメソッド）----
 	// フィールドの値を取得するためのメソッド。フィールドがprivateなので、メソッドを通さないと外部からアクセスできない。
 	public Integer getId() {

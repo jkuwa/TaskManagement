@@ -1,17 +1,23 @@
 package io.github.jkuwa.taskmanagement;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -105,5 +111,106 @@ class TaskControllerTests {
 	void findByIdReturns404WhenNotFound() throws Exception {
 		mockMvc.perform(get("/api/tasks/9999"))
 			.andExpect(status().isNotFound());
+	}
+
+	// ---- POST /api/tasks（カードの追加）----
+
+	/**
+	 * POST /api/tasks に JSON を送る。
+	 * contentType：送るデータが JSON であることを伝える
+	 * content：リクエストの本文
+	 */
+	private ResultActions postTask(String json) throws Exception {
+		return mockMvc.perform(post("/api/tasks")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json));
+	}
+
+	/** tasks テーブルの件数を数える（作られていないことを確かめるときに使う） */
+	private int countTasks() {
+		return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM tasks", Integer.class);
+	}
+
+	/**
+	 * カードのある列に追加すると、201 Created が返り、列の一番下（position が最大＋1）に入ることを確かめる。
+	 * setUp で todo 列には position 0 と 1 のカードがあるので、新しいカードは 2 になる。
+	 */
+	@Test
+	void createAddsTaskToBottomOfColumn() throws Exception {
+		postTask("""
+				{"title":"新しいカード","status":"todo"}
+				""")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.id").value(4))
+			.andExpect(jsonPath("$.title").value("新しいカード"))
+			.andExpect(jsonPath("$.description").isEmpty())
+			.andExpect(jsonPath("$.priority").isEmpty())
+			.andExpect(jsonPath("$.dueDate").isEmpty())
+			.andExpect(jsonPath("$.status").value("todo"))
+			.andExpect(jsonPath("$.position").value(2))
+			.andExpect(jsonPath("$.createdAt").isNotEmpty())
+			.andExpect(jsonPath("$.updatedAt").isNotEmpty());
+
+		// DB にも保存されていて、一覧の最後に出てくる
+		mockMvc.perform(get("/api/tasks"))
+			.andExpect(jsonPath("$.length()").value(4))
+			.andExpect(jsonPath("$[3].title").value("新しいカード"));
+	}
+
+	/** カードのない列（done）に追加すると、position が 0 になることを確かめる */
+	@Test
+	void createAddsTaskToEmptyColumn() throws Exception {
+		postTask("""
+				{"title":"完了したカード","status":"done"}
+				""")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.status").value("done"))
+			.andExpect(jsonPath("$.position").value(0));
+	}
+
+	/** タイトルの前後の空白は取り除いて保存することを確かめる */
+	@Test
+	void createTrimsTitle() throws Exception {
+		postTask("""
+				{"title":"  前後に空白  ","status":"todo"}
+				""")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.title").value("前後に空白"));
+	}
+
+	/** ちょうど100文字のタイトルは作れることを確かめる */
+	@Test
+	void createAccepts100CharacterTitle() throws Exception {
+		String title = "あ".repeat(100);
+		postTask("{\"title\":\"" + title + "\",\"status\":\"todo\"}")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.title").value(title));
+	}
+
+	/**
+	 * 正しくない入力のときは 400 Bad Request が返り、カードが作られないことを確かめる。
+	 *
+	 * <p>@ParameterizedTest：同じテストを、@ValueSource に並べた値で1回ずつ実行する。
+	 * 入力だけが違うテストをまとめて書ける。
+	 */
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"{\"title\":\"\",\"status\":\"todo\"}",          // 空のタイトル
+		"{\"title\":\"   \",\"status\":\"todo\"}",       // 空白だけのタイトル
+		"{\"status\":\"todo\"}",                         // タイトルがない
+		"{\"title\":\"カード\",\"status\":\"unknown\"}",  // ない列
+		"{\"title\":\"カード\"}",                         // 列がない
+	})
+	void createReturns400WhenInvalid(String json) throws Exception {
+		postTask(json).andExpect(status().isBadRequest());
+		assertThat(countTasks()).isEqualTo(3);
+	}
+
+	/** 101文字のタイトルは 400 Bad Request になり、カードが作られないことを確かめる */
+	@Test
+	void createReturns400WhenTitleTooLong() throws Exception {
+		postTask("{\"title\":\"" + "あ".repeat(101) + "\",\"status\":\"todo\"}")
+			.andExpect(status().isBadRequest());
+		assertThat(countTasks()).isEqualTo(3);
 	}
 }
