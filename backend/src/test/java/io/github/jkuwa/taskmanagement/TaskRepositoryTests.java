@@ -30,15 +30,15 @@ class TaskRepositoryTests {
 	private EntityManager entityManager;
 
 	/**
-	 * タイトルだけ指定したカードを保存し、id で取り出せることと、初期値が入っていることを確かめる。
+	 * カードを保存し、id で取り出せることと、指定した値・自動で入る値が保存されていることを確かめる。
 	 */
 	@Test
 	void saveAndFindById() {
 		// タイトルを保存したカード情報（Task）をsavedという変数に入れる
-		// ① new Task：新たなカードを作る
+		// ① new Task：新たなカードを作る（タイトル・列・並び順を指定）
 		// ② taskRepository.save：①をDBに保存してidなどをTaskに入れる
 		// ③ Task saved：保存後のカードを受け取る
-		Task saved = taskRepository.save(new Task("テスト用のカード"));
+		Task saved = taskRepository.save(new Task("テスト用のカード", "in_progress", 3));
 
 		// 同じトランザクションの中では、JPA が保存した Entity をキャッシュに覚えている。
 		// そのままだと findById は DB を見に行かずキャッシュから返すので、DB から読み直すためにキャッシュを空にする
@@ -53,8 +53,11 @@ class TaskRepositoryTests {
 		assertThat(found).isNotSameAs(saved);                  // キャッシュの saved ではなく、DB から読み直した別のオブジェクト
 		assertThat(found.getId()).isEqualTo(saved.getId());    // 保存したときと同じ id で取り出せる
 		assertThat(found.getTitle()).isEqualTo("テスト用のカード");
-		assertThat(found.getStatus()).isEqualTo("todo");       // 初期値は「未着手」
-		assertThat(found.getPosition()).isEqualTo(0);
+		assertThat(found.getStatus()).isEqualTo("in_progress"); // 指定した列
+		assertThat(found.getPosition()).isEqualTo(3);           // 指定した並び順
+		assertThat(found.getDescription()).isNull();            // 説明文・期限・優先度は未設定
+		assertThat(found.getDueDate()).isNull();
+		assertThat(found.getPriority()).isNull();
 		assertThat(found.getCreatedAt()).isNotNull();          // 作成日時が入っている
 		assertThat(found.getUpdatedAt()).isNotNull();          // 更新日時が入っている
 	}
