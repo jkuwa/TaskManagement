@@ -43,6 +43,7 @@ export function Board() {
     return <p className="message message-error">データを読み込めませんでした</p>
   }
 
+  // groupByStatus：カードをステータス別に分ける
   const groups = groupByStatus(state.tasks)
   return (
     <main className="board">
