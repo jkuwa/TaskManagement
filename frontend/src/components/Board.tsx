@@ -52,6 +52,8 @@ export function Board() {
   async function handleAdd(status: TaskStatus, title: string) {
     const created = await createTask(title, status)
     // 前の state をもとに新しい state を作る（prev を使うと、続けて追加しても取りこぼさない）
+    // prev には最新の state が入っている（形はファイル上部の LoadState を参照）
+    // success（{ kind: 'success', tasks: [全列のカード] }）のときだけ、tasks の最後に作ったカードを足す
     setState((prev) =>
       prev.kind === 'success' ? { kind: 'success', tasks: [...prev.tasks, created] } : prev,
     )

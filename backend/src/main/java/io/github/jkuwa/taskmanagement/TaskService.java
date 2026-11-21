@@ -111,6 +111,7 @@ public class TaskService {
 				.map(last -> last.getPosition() + 1)
 				.orElse(0);
 
+		// new Task を DB にINSERT し、id なども入った状態の Task を Controller に返す
 		return taskRepository.save(new Task(title, status, position));
 	}
 }

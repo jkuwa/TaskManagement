@@ -45,6 +45,7 @@ export function AddCardForm({ onAdd }: Props) {
     setIsSaving(true)
     setHasError(false)
     try {
+      // タイトルを渡して onAdd を実行（Board）
       await onAdd(trimmed)
       setTitle('')
     } catch {
