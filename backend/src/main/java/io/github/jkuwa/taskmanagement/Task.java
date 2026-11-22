@@ -120,6 +120,31 @@ public class Task {
 		this.position = position;
 	}
 
+	// ---- 更新 ----
+	/**
+	 * 詳細画面で編集できる項目（タイトル・説明文・期限・優先度）をまとめて書き換える。
+	 * カードを更新する API で使う。
+	 *
+	 * <p>項目ごとに setter を作ると、どこからでも1項目ずつ書き換えられてしまうので、
+	 * 「詳細画面の内容で更新する」という1つのメソッドにまとめている。
+	 * 入力のチェックは TaskService で済ませてから呼ぶ。
+	 *
+	 * <p>JPA は、トランザクションの中で読み込んだエンティティの値が変わると、
+	 * トランザクションの終わりに自動で UPDATE 文を実行する（変更の検知）。
+	 * 更新日時（updatedAt）も @UpdateTimestamp で自動で入る。
+	 *
+	 * @param title       タイトル
+	 * @param description 説明文（未設定なら null）
+	 * @param dueDate     期限（未設定なら null）
+	 * @param priority    優先度（未設定なら null）
+	 */
+	public void update(String title, String description, LocalDate dueDate, String priority) {
+		this.title = title;
+		this.description = description;
+		this.dueDate = dueDate;
+		this.priority = priority;
+	}
+
 	// ---- getter（値を取り出すメソッド）----
 	// フィールドの値を取得するためのメソッド。フィールドがprivateなので、メソッドを通さないと外部からアクセスできない。
 	public Integer getId() {
