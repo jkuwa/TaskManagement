@@ -121,7 +121,8 @@ public class TaskService {
 	 * </ul>
 	 * 更新しないときは 400 Bad Request を返す。カードが見つからないときは 404 Not Found を返す。
 	 *
-	 * <p>findById で読み込んだ Task の値を書き換えると、メソッドが終わるとき（トランザクションの終わり）に
+	 * <p>findById で読み込んだ Task の値（リポジトリを使用して取得した情報）を書き換えると、
+	 * メソッドが終わるとき（トランザクションの終わり）に
 	 * JPA が自動で UPDATE 文を実行する。そのため save を呼ばなくてよい。
 	 *
 	 * @param id      更新するカードの id
@@ -145,9 +146,11 @@ public class TaskService {
 		}
 
 		Task task = findById(id);
+		// Task.java の update メソッド
 		task.update(title, description, request.dueDate(), priority);
 		return task;
 	}
+	// JPA が自動で UPDATE 実行
 
 	/**
 	 * タイトルをチェックし、前後の空白を取り除いたものを返す。カードの追加と更新で共通に使う。

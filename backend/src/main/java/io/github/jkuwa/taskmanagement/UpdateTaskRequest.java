@@ -3,8 +3,17 @@ package io.github.jkuwa.taskmanagement;
 import java.time.LocalDate;
 
 /**
- * カードを更新するとき（PUT /api/tasks/{id}）に受け取るリクエストの中身。
+ * 詳細画面で編集した内容を、フロントエンドから受け取るための入れ物。
+ *
+ * <p>フロントエンドは、カードの更新 API（PUT /api/tasks/{id}）に、編集した内容を JSON で送ってくる。
  * 例：{"title":"資料を作る","description":"構成から考える","dueDate":"2026-11-20","priority":"high"}
+ *
+ * <p>Java はこの JSON の文字列をそのままでは扱えないので、Spring Boot がこのクラスに詰め替えてくれる。
+ * TaskController の update が引数としてこれを受け取り、TaskService の update に渡す。
+ * Service では request.title() のように取り出して、入力のチェックとカードの更新に使う。
+ *
+ * <p>JSON の項目名とこのクラスの項目名（title など）が同じものに値が入る。
+ * 項目のしくみ（record）は CreateTaskRequest のコメントを参照。
  *
  * <p>PUT は「送った内容で丸ごと置き換える」という意味のメソッド。
  * 詳細画面で編集できる4項目を毎回まとめて送ってもらう。

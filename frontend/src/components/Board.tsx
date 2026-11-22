@@ -103,7 +103,9 @@ export function Board() {
             key={column.status}
             label={column.label}
             tasks={groups[column.status]}
+            // AddCardForm で［追加］したとき（onAdd(title) が呼ばれたとき）に handleAdd が実行される
             onAdd={(title) => handleAdd(column.status, title)}
+            // {(id) => setOpenId(id)} の略。setOpenId(id) とすると描画のたびにすぐ実行されてしまう。
             onOpen={setOpenId}
           />
         ))}

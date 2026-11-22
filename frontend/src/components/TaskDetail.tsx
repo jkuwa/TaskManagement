@@ -57,6 +57,7 @@ export function TaskDetail({ task, hasSaveError, onSave, onClose }: Props) {
 
   // 開いたときに、<dialog> をポップアップとして表示する。
   // 開発中は StrictMode で2回実行されるので、すでに開いていたら何もしない
+  // showModal：ブラウザのdialog用メソッド。これでモーダルを開くと、背景を暗くしたり、Escで閉じる機能も持つ。
   useEffect(() => {
     const dialog = dialogRef.current
     if (dialog && !dialog.open) dialog.showModal()
@@ -132,7 +133,7 @@ export function TaskDetail({ task, hasSaveError, onSave, onClose }: Props) {
 
   return (
     <dialog
-      ref={dialogRef}
+      ref={dialogRef}  // React が、この <dialog> を dialogRef.current に入れてくれる
       className="detail"
       aria-label="カードの詳細"
       onClose={handleClose}
