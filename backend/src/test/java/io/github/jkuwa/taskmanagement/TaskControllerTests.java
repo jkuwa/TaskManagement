@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import jakarta.persistence.EntityManager;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,6 +48,10 @@ class TaskControllerTests {
 	// JdbcTemplate：Java から SQL を直接書いて実行するためのクラス
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	// EntityManager：JPA でエンティティを読み書きする本体。リポジトリも内部でこれを使っている
+	@Autowired
+	private EntityManager entityManager;
 
 	/**
 	 * コンストラクタを省略すると、コンパイラが引数なしのコンストラクタを自動で付け足してくれる。
@@ -217,6 +223,20 @@ class TaskControllerTests {
 
 	// ---- PUT /api/tasks/{id}（カードの更新）----
 
+	/**
+	 * まだ DB に送っていない変更を送り（flush）、JPA が覚えているエンティティを捨てる（clear）。
+	 *
+	 * <p>このテストクラスは @Transactional なので、PUT と GET が1つのトランザクションの中で動く。
+	 * JPA はトランザクションの中で読み込んだエンティティを覚えていて（キャッシュ）、
+	 * 同じ id を findById すると DB を見ずにそれを返す。
+	 * そのままだと、UPDATE 文が実行されていなくても GET で書き換えた値が返ってしまうので、
+	 * GET の前にこれを呼んで、DB から読み直させる。
+	 */
+	private void flushAndClear() {
+		entityManager.flush();
+		entityManager.clear();
+	}
+
 	/** PUT /api/tasks/{id} に JSON を送る */
 	private ResultActions putTask(int id, String json) throws Exception {
 		return mockMvc.perform(put("/api/tasks/" + id)
@@ -242,7 +262,8 @@ class TaskControllerTests {
 			.andExpect(jsonPath("$.status").value("todo"))
 			.andExpect(jsonPath("$.position").value(1));
 
-		// DB にも保存されている
+		// DB にも保存されている（DB から読み直して GET で確かめる）
+		flushAndClear();
 		mockMvc.perform(get("/api/tasks/1"))
 			.andExpect(jsonPath("$.title").value("変更後のタイトル"))
 			.andExpect(jsonPath("$.description").value("説明を追加"))
@@ -261,6 +282,8 @@ class TaskControllerTests {
 			.andExpect(jsonPath("$.dueDate").isEmpty())
 			.andExpect(jsonPath("$.priority").isEmpty());
 
+		// DB にも保存されている（DB から読み直して GET で確かめる）
+		flushAndClear();
 		mockMvc.perform(get("/api/tasks/2"))
 			.andExpect(jsonPath("$.description").isEmpty())
 			.andExpect(jsonPath("$.dueDate").isEmpty())
