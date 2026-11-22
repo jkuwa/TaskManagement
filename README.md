@@ -96,12 +96,14 @@ docker compose exec -T db psql -U taskmanagement -d taskmanagement < backend/src
 | --- | --- |
 | `GET /api/tasks` | すべてのカードを並び順（position → id）で返す |
 | `GET /api/tasks/{id}` | 指定した id のカードを返す。存在しなければ 404 |
-| `POST /api/tasks` | カードを列の一番下に追加し、201 で作ったカードを返す。本文は `{"title":"…","status":"todo"}`（status は `todo` / `in_progress` / `done`）。タイトルが空・空白だけ・101文字以上、または status が正しくなければ 400 |
+| `POST /api/tasks` | カードを指定した列の一番下に追加し、201 で作ったカードを返す。入力が正しくなければ 400 |
+| `PUT /api/tasks/{id}` | カードのタイトル・説明文・期限・優先度を更新する。4項目をまとめて送り、null で解除する。入力が正しくなければ 400、存在しなければ 404 |
 
 ```sh
 curl http://localhost:8080/api/tasks
 curl http://localhost:8080/api/tasks/1
 curl -X POST http://localhost:8080/api/tasks -H 'Content-Type: application/json' -d '{"title":"資料を作る","status":"todo"}'
+curl -X PUT http://localhost:8080/api/tasks/1 -H 'Content-Type: application/json' -d '{"title":"資料を作る","description":null,"dueDate":"2026-11-20","priority":"high"}'
 ```
 
 ### 4. DB を停止する
