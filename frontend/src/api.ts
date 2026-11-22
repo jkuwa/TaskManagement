@@ -1,4 +1,4 @@
-import type { Task, TaskStatus } from './types'
+import type { Task, TaskFields, TaskStatus } from './types'
 
 /**
  * すべてのカードを取得する（GET /api/tasks）。
@@ -32,6 +32,25 @@ export async function createTask(title: string, status: TaskStatus): Promise<Tas
   })
   if (!res.ok) {
     throw new Error(`カードの追加に失敗しました（${res.status}）`)
+  }
+  return res.json()
+}
+
+/**
+ * カードのタイトル・説明文・期限・優先度を更新する（PUT /api/tasks/{id}）。
+ * 更新したカードを返す。
+ *
+ * PUT は「送った内容で丸ごと置き換える」ので、4つの項目を毎回まとめて送る。
+ * 説明文・期限・優先度を解除するときは null を送る。
+ */
+export async function updateTask(id: number, fields: TaskFields): Promise<Task> {
+  const res = await fetch(`/api/tasks/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  })
+  if (!res.ok) {
+    throw new Error(`カードの更新に失敗しました（${res.status}）`)
   }
   return res.json()
 }

@@ -34,6 +34,9 @@ public class TaskService {
 	/** status として使える値（列） */
 	private static final List<String> STATUSES = List.of("todo", "in_progress", "done");
 
+	/** priority として使える値（未設定の null はこれとは別に許可する） */
+	private static final List<String> PRIORITIES = List.of("high", "medium", "low");
+
 	private final TaskRepository taskRepository;
 
 	/**
@@ -91,15 +94,7 @@ public class TaskService {
 	 */
 	@Transactional
 	public Task create(CreateTaskRequest request) {
-		String title = request.title() == null ? "" : request.title().trim();
-		if (title.isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "タイトルを入力してください");
-		}
-		// codePointCount：文字数を数える。length() だと絵文字などが2文字と数えられるため
-		if (title.codePointCount(0, title.length()) > MAX_TITLE_LENGTH) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"タイトルは" + MAX_TITLE_LENGTH + "文字までです");
-		}
+		String title = validateTitle(request.title());
 		String status = request.status();
 		// List.of で作ったリストは contains(null) で例外になるので、先に null を確かめる
 		if (status == null || !STATUSES.contains(status)) {
@@ -113,5 +108,67 @@ public class TaskService {
 
 		// new Task を DB にINSERT し、id なども入った状態の Task を Controller に返す
 		return taskRepository.save(new Task(title, status, position));
+	}
+
+	/**
+	 * 指定した id のカードの、タイトル・説明文・期限・優先度を更新する（詳細画面での編集）。
+	 *
+	 * <p>入力のチェック（docs/spec.md の F-13〜F-16）：
+	 * <ul>
+	 *   <li>タイトルは追加のときと同じ（前後の空白を取り除く・空なら更新しない・{@value #MAX_TITLE_LENGTH} 文字まで）</li>
+	 *   <li>説明文は空白だけなら null（未設定）にする</li>
+	 *   <li>優先度は high / medium / low / null（未設定）以外なら更新しない</li>
+	 * </ul>
+	 * 更新しないときは 400 Bad Request を返す。カードが見つからないときは 404 Not Found を返す。
+	 *
+	 * <p>findById で読み込んだ Task の値（リポジトリを使用して取得した情報）を書き換えると、
+	 * メソッドが終わるとき（トランザクションの終わり）に
+	 * JPA が自動で UPDATE 文を実行する。そのため save を呼ばなくてよい。
+	 *
+	 * @param id      更新するカードの id
+	 * @param request 更新後のタイトル・説明文・期限・優先度
+	 * @return 更新したカード
+	 * @throws ResponseStatusException 入力が正しくないとき（400）、カードが見つからないとき（404）
+	 */
+	@Transactional
+	public Task update(Integer id, UpdateTaskRequest request) {
+		String title = validateTitle(request.title());
+
+		String priority = request.priority();
+		if (priority != null && !PRIORITIES.contains(priority)) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "priority が正しくありません");
+		}
+
+		// 空白だけの説明文は「入っていない」扱いにする（docs/spec.md の F-17）
+		String description = request.description();
+		if (description != null && description.isBlank()) {
+			description = null;
+		}
+
+		Task task = findById(id);
+		// Task.java の update メソッド
+		task.update(title, description, request.dueDate(), priority);
+		return task;
+	}
+	// JPA が自動で UPDATE 実行
+
+	/**
+	 * タイトルをチェックし、前後の空白を取り除いたものを返す。カードの追加と更新で共通に使う。
+	 *
+	 * @param rawTitle 受け取ったタイトル（null のこともある）
+	 * @return 前後の空白を取り除いたタイトル
+	 * @throws ResponseStatusException 空・空白だけ・{@value #MAX_TITLE_LENGTH} 文字を超えるとき（400 Bad Request）
+	 */
+	private String validateTitle(String rawTitle) {
+		String title = rawTitle == null ? "" : rawTitle.trim();
+		if (title.isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "タイトルを入力してください");
+		}
+		// codePointCount：文字数を数える。length() だと絵文字などが2文字と数えられるため
+		if (title.codePointCount(0, title.length()) > MAX_TITLE_LENGTH) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"タイトルは" + MAX_TITLE_LENGTH + "文字までです");
+		}
+		return title;
 	}
 }

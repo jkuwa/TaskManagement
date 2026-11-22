@@ -21,3 +21,9 @@ export type Task = {
   createdAt: string
   updatedAt: string
 }
+
+/**
+ * 詳細画面で編集できる項目。PUT /api/tasks/{id} で送る内容。
+ * Pick<型, 'キー' | …>：型の中から指定した項目だけを取り出した型を作る
+ */
+export type TaskFields = Pick<Task, 'title' | 'description' | 'dueDate' | 'priority'>

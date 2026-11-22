@@ -3,8 +3,11 @@ package io.github.jkuwa.taskmanagement;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import jakarta.persistence.EntityManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +48,10 @@ class TaskControllerTests {
 	// JdbcTemplate：Java から SQL を直接書いて実行するためのクラス
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	// EntityManager：JPA でエンティティを読み書きする本体。リポジトリも内部でこれを使っている
+	@Autowired
+	private EntityManager entityManager;
 
 	/**
 	 * コンストラクタを省略すると、コンパイラが引数なしのコンストラクタを自動で付け足してくれる。
@@ -212,5 +219,118 @@ class TaskControllerTests {
 		postTask("{\"title\":\"" + "あ".repeat(101) + "\",\"status\":\"todo\"}")
 			.andExpect(status().isBadRequest());
 		assertThat(countTasks()).isEqualTo(3);
+	}
+
+	// ---- PUT /api/tasks/{id}（カードの更新）----
+
+	/**
+	 * まだ DB に送っていない変更を送り（flush）、JPA が覚えているエンティティを捨てる（clear）。
+	 *
+	 * <p>このテストクラスは @Transactional なので、PUT と GET が1つのトランザクションの中で動く。
+	 * JPA はトランザクションの中で読み込んだエンティティを覚えていて（キャッシュ）、
+	 * 同じ id を findById すると DB を見ずにそれを返す。
+	 * そのままだと、UPDATE 文が実行されていなくても GET で書き換えた値が返ってしまうので、
+	 * GET の前にこれを呼んで、DB から読み直させる。
+	 */
+	private void flushAndClear() {
+		entityManager.flush();
+		entityManager.clear();
+	}
+
+	/** PUT /api/tasks/{id} に JSON を送る */
+	private ResultActions putTask(int id, String json) throws Exception {
+		return mockMvc.perform(put("/api/tasks/" + id)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json));
+	}
+
+	/**
+	 * 何も設定していないカード（id 1）に、説明文・期限・優先度を設定できることを確かめる。
+	 * 列（status）と並び順（position）は変わらない。
+	 */
+	@Test
+	void updateSetsFields() throws Exception {
+		putTask(1, """
+				{"title":"  変更後のタイトル  ","description":"説明を追加","dueDate":"2027-01-05","priority":"medium"}
+				""")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.id").value(1))
+			.andExpect(jsonPath("$.title").value("変更後のタイトル"))
+			.andExpect(jsonPath("$.description").value("説明を追加"))
+			.andExpect(jsonPath("$.dueDate").value("2027-01-05"))
+			.andExpect(jsonPath("$.priority").value("medium"))
+			.andExpect(jsonPath("$.status").value("todo"))
+			.andExpect(jsonPath("$.position").value(1));
+
+		// DB にも保存されている（DB から読み直して GET で確かめる）
+		flushAndClear();
+		mockMvc.perform(get("/api/tasks/1"))
+			.andExpect(jsonPath("$.title").value("変更後のタイトル"))
+			.andExpect(jsonPath("$.description").value("説明を追加"))
+			.andExpect(jsonPath("$.dueDate").value("2027-01-05"))
+			.andExpect(jsonPath("$.priority").value("medium"));
+	}
+
+	/** 設定済みのカード（id 2）に null を送ると、説明文・期限・優先度を解除できることを確かめる */
+	@Test
+	void updateClearsFields() throws Exception {
+		putTask(2, """
+				{"title":"1番目のカード","description":null,"dueDate":null,"priority":null}
+				""")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.description").isEmpty())
+			.andExpect(jsonPath("$.dueDate").isEmpty())
+			.andExpect(jsonPath("$.priority").isEmpty());
+
+		// DB にも保存されている（DB から読み直して GET で確かめる）
+		flushAndClear();
+		mockMvc.perform(get("/api/tasks/2"))
+			.andExpect(jsonPath("$.description").isEmpty())
+			.andExpect(jsonPath("$.dueDate").isEmpty())
+			.andExpect(jsonPath("$.priority").isEmpty());
+	}
+
+	/** 空白だけの説明文は、未設定（null）として保存されることを確かめる */
+	@Test
+	void updateSavesBlankDescriptionAsNull() throws Exception {
+		putTask(2, """
+				{"title":"1番目のカード","description":"   ","dueDate":null,"priority":null}
+				""")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.description").isEmpty());
+	}
+
+	/** 正しくない入力のときは 400 Bad Request が返り、カードが変わらないことを確かめる */
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"{\"title\":\"\"}",                                // 空のタイトル
+		"{\"title\":\"   \"}",                             // 空白だけのタイトル
+		"{\"description\":\"説明\"}",                       // タイトルがない
+		"{\"title\":\"カード\",\"priority\":\"urgent\"}",  // ない優先度
+		"{\"title\":\"カード\",\"dueDate\":\"11/20\"}",    // 日付として読めない期限
+	})
+	void updateReturns400WhenInvalid(String json) throws Exception {
+		putTask(2, json).andExpect(status().isBadRequest());
+
+		mockMvc.perform(get("/api/tasks/2"))
+			.andExpect(jsonPath("$.title").value("1番目のカード"))
+			.andExpect(jsonPath("$.priority").value("high"))
+			.andExpect(jsonPath("$.dueDate").value("2026-11-20"));
+	}
+
+	/** 101文字のタイトルは 400 Bad Request になることを確かめる */
+	@Test
+	void updateReturns400WhenTitleTooLong() throws Exception {
+		putTask(2, "{\"title\":\"" + "あ".repeat(101) + "\"}")
+			.andExpect(status().isBadRequest());
+	}
+
+	/** 存在しない id を指定すると、404 Not Found が返ることを確かめる */
+	@Test
+	void updateReturns404WhenNotFound() throws Exception {
+		putTask(9999, """
+				{"title":"カード"}
+				""")
+			.andExpect(status().isNotFound());
 	}
 }

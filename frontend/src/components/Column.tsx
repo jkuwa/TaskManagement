@@ -7,17 +7,19 @@ type Props = {
   tasks: Task[]
   /** この列にカードを追加する処理。失敗したときは例外を投げる */
   onAdd: (title: string) => Promise<void>
+  /** カードの詳細画面を開く処理 */
+  onOpen: (id: number) => void
 }
 
 /** ボードの列1つ（未着手・進行中・完了のどれか） */
-export function Column({ label, tasks, onAdd }: Props) {
+export function Column({ label, tasks, onAdd, onOpen }: Props) {
   return (
     <section className="column">
       <h2 className="column-title">{label}</h2>
       <div className="card-list">
         {tasks.map((task) => (
           // key：React が一覧のどの要素がどのカードかを見分けるための値。id を使う
-          <Card key={task.id} task={task} />
+          <Card key={task.id} task={task} onOpen={() => onOpen(task.id)} />
         ))}
       </div>
       <AddCardForm onAdd={onAdd} />

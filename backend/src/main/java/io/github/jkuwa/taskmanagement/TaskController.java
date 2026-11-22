@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>GET /api/tasks：すべてのカードを並び順で返す</li>
  *   <li>GET /api/tasks/{id}：指定した id のカードを1件返す</li>
  *   <li>POST /api/tasks：カードを列の一番下に追加する</li>
+ *   <li>PUT /api/tasks/{id}：カードのタイトル・説明文・期限・優先度を更新する</li>
  * </ul>
  *
  * <p>Controller はリクエストの受け渡しだけを行い、実際の処理は TaskService に任せる。
@@ -93,5 +95,23 @@ public class TaskController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public Task create(@RequestBody CreateTaskRequest request) {
 		return taskService.create(request);
+	}
+
+	/**
+	 * PUT /api/tasks/{id} にアクセスされたときに呼ばれる。詳細画面で編集した内容でカードを更新する。
+	 *
+	 * <ul>
+	 *   <li>{@code @PutMapping}：PUT メソッドのリクエストを受け取る（データを丸ごと置き換えるときに使う）</li>
+	 *   <li>成功したら 200 OK と、更新したカードを返す</li>
+	 * </ul>
+	 * 入力が正しくないときは 400 Bad Request、カードが見つからないときは 404 Not Found が返る。
+	 *
+	 * @param id      更新するカードの id
+	 * @param request 更新後の内容。例：{"title":"資料を作る","description":null,"dueDate":"2026-11-20","priority":"high"}
+	 * @return 更新したカード
+	 */
+	@PutMapping("/{id}")
+	public Task update(@PathVariable Integer id, @RequestBody UpdateTaskRequest request) {
+		return taskService.update(id, request);
 	}
 }
