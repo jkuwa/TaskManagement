@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
-
-/** タイトルの最大文字数（docs/spec.md の F-11） */
-const MAX_TITLE_LENGTH = 100
+import { MAX_TITLE_LENGTH } from '../utils'
 
 type Props = {
   /**

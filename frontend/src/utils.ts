@@ -7,6 +7,9 @@ export const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'done', label: '完了' },
 ]
 
+/** タイトルの最大文字数（docs/spec.md の F-11, F-13） */
+export const MAX_TITLE_LENGTH = 100
+
 /** 優先度の表示名 */
 export const PRIORITY_LABELS: Record<Priority, string> = {
   high: '高',
