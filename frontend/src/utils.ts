@@ -65,7 +65,8 @@ export function reorderTasks(
 
   // 動かすカードを一度抜いてから列ごとに分け、移動先の列の index の位置に入れる
   const groups = groupByStatus(tasks.filter((task) => task.id !== id))
-  groups[status].splice(index, 0, { ...moving, status })
+  // status を追加すると、同じ項目は後に書いた方が勝つため更新される
+  groups[status].splice(index, 0, { ...moving, status })  // status（項目名）: status（変数）が省略されている
 
   // 列ごとに position を振り直し、左の列から順に1つの配列に戻す
   // flatMap：列ごとの配列を作り、それをつなげて1つの配列にする

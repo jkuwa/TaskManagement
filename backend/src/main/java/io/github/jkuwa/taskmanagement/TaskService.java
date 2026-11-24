@@ -206,11 +206,14 @@ public class TaskService {
 
 		// 別の列から来たときは、移動元の列の穴を詰める
 		if (!fromStatus.equals(status)) {
+			// SELECT の直前に、Hibernate が読み込んだとき（findById(id)）の値と今の値を比べ、変わったカードを先に UPDATE する（flush）。
+			// そのため、動かしたカードは DB でも移動先の status になっていて、ここでは取得されない
 			renumber(taskRepository.findByStatusOrderByPositionAscIdAsc(fromStatus), fromStatus);
 		}
 
 		return findAll();
 	}
+	// JPA が自動で UPDATE 実行
 
 	/**
 	 * リストの順番どおりに、position を 0, 1, 2… と振り直す。

@@ -42,6 +42,8 @@ function getDropTarget(event: DragMoveEvent | DragEndEvent): DropTarget | null {
 
   const cards = document.querySelectorAll<HTMLElement>(`.card-list[data-status="${status}"] > .card`)
   const centers = [...cards]
+    // data-task-id が active.id と一致しないカードの配列を作り直す。
+    // active.id は useDraggable({ id: task.id }) で登録したもの
     .filter((card) => card.dataset.taskId !== String(event.active.id))
     .map((card) => {
       const rect = card.getBoundingClientRect()

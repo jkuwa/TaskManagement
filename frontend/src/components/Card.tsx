@@ -21,6 +21,7 @@ export function Card({ task, onOpen }: Props) {
   // - attributes：読み上げソフト向けの属性（aria-* など）
   // - listeners：ドラッグを始めるためのイベント（onPointerDown）
   // - isDragging：このカードをドラッグしている最中か
+  // useDraggableで返ってくるオブジェクトから、該当する値をそれぞれの変数に入れる
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id: task.id })
 
   // <article> はもともと押せる要素ではないので、キーボードでも開けるようにする
