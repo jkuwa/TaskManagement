@@ -72,7 +72,7 @@ export function reorderTasks(
   // flatMap：列ごとの配列を作り、それをつなげて1つの配列にする
   return COLUMNS.flatMap((column) =>
     groups[column.status].map((task, i) =>
-      task.position === i && task.status === column.status ? task : { ...task, position: i },
+      task.position === i ? task : { ...task, position: i },
     ),
   )
 }
