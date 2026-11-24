@@ -333,4 +333,114 @@ class TaskControllerTests {
 				""")
 			.andExpect(status().isNotFound());
 	}
+
+	// ---- PUT /api/tasks/{id}/position（カードの移動）----
+	// setUp のデータ：未着手 = [id 2（position 0）, id 1（position 1）]、進行中 = [id 3（position 0）]
+
+	/** PUT /api/tasks/{id}/position に JSON を送る */
+	private ResultActions moveTask(int id, String json) throws Exception {
+		return mockMvc.perform(put("/api/tasks/" + id + "/position")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json));
+	}
+
+	/**
+	 * 未着手の一番下のカード（id 1）を、同じ列の一番上へ移動できることを確かめる（F-20）。
+	 * すべてのカードが新しい並び順で返り、position が 0 から振り直される。
+	 *
+	 * <p>一覧は列をまたいで position → id の順に並ぶので、移動後は
+	 * id 1（未着手 0）→ id 3（進行中 0）→ id 2（未着手 1）の順になる。
+	 */
+	@Test
+	void moveReordersWithinColumn() throws Exception {
+		moveTask(1, """
+				{"status":"todo","index":0}
+				""")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.length()").value(3))
+			.andExpect(jsonPath("$[0].id").value(1))
+			.andExpect(jsonPath("$[0].position").value(0))
+			.andExpect(jsonPath("$[1].id").value(3))
+			.andExpect(jsonPath("$[2].id").value(2))
+			.andExpect(jsonPath("$[2].position").value(1));
+
+		// DB にも保存されている（DB から読み直して GET で確かめる）
+		flushAndClear();
+		mockMvc.perform(get("/api/tasks/1"))
+			.andExpect(jsonPath("$.status").value("todo"))
+			.andExpect(jsonPath("$.position").value(0));
+		mockMvc.perform(get("/api/tasks/2"))
+			.andExpect(jsonPath("$.position").value(1));
+	}
+
+	/**
+	 * 未着手のカード（id 2）を、進行中の2枚の間へ移動できることを確かめる（F-19）。
+	 * 移動先では落とした位置に入り、移動元の列は穴が詰められる。
+	 */
+	@Test
+	void moveToAnotherColumn() throws Exception {
+		// 進行中を2枚にする（id 4）
+		jdbcTemplate.update("INSERT INTO tasks (title, status, position) VALUES ('進行中の2枚目', 'in_progress', 1)");
+
+		moveTask(2, """
+				{"status":"in_progress","index":1}
+				""")
+			.andExpect(status().isOk());
+
+		flushAndClear();
+		// 移動先：id 3 → id 2 → id 4 の順
+		mockMvc.perform(get("/api/tasks/3")).andExpect(jsonPath("$.position").value(0));
+		mockMvc.perform(get("/api/tasks/2"))
+			.andExpect(jsonPath("$.status").value("in_progress"))
+			.andExpect(jsonPath("$.position").value(1));
+		mockMvc.perform(get("/api/tasks/4")).andExpect(jsonPath("$.position").value(2));
+		// 移動元：残った id 1 が一番上に詰められる
+		mockMvc.perform(get("/api/tasks/1"))
+			.andExpect(jsonPath("$.status").value("todo"))
+			.andExpect(jsonPath("$.position").value(0));
+	}
+
+	/** カードのない列（done）へ移動できることを確かめる */
+	@Test
+	void moveToEmptyColumn() throws Exception {
+		moveTask(3, """
+				{"status":"done","index":0}
+				""")
+			.andExpect(status().isOk());
+
+		flushAndClear();
+		mockMvc.perform(get("/api/tasks/3"))
+			.andExpect(jsonPath("$.status").value("done"))
+			.andExpect(jsonPath("$.position").value(0));
+	}
+
+	/**
+	 * 正しくない入力のときは 400 Bad Request が返り、カードが動かないことを確かめる。
+	 * 未着手は id 1 を除くと1枚なので、index に使えるのは 0〜1。
+	 */
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"{\"status\":\"todo\",\"index\":-1}",     // 負の index
+		"{\"status\":\"todo\",\"index\":2}",      // 列の枚数より大きい index
+		"{\"status\":\"todo\"}",                  // index がない
+		"{\"status\":\"unknown\",\"index\":0}",   // ない列
+		"{\"index\":0}",                          // 列がない
+	})
+	void moveReturns400WhenInvalid(String json) throws Exception {
+		moveTask(1, json).andExpect(status().isBadRequest());
+
+		flushAndClear();
+		mockMvc.perform(get("/api/tasks/1"))
+			.andExpect(jsonPath("$.status").value("todo"))
+			.andExpect(jsonPath("$.position").value(1));
+	}
+
+	/** 存在しない id を指定すると、404 Not Found が返ることを確かめる */
+	@Test
+	void moveReturns404WhenNotFound() throws Exception {
+		moveTask(9999, """
+				{"status":"todo","index":0}
+				""")
+			.andExpect(status().isNotFound());
+	}
 }

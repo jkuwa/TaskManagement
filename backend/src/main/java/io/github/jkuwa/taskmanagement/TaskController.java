@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>GET /api/tasks/{id}：指定した id のカードを1件返す</li>
  *   <li>POST /api/tasks：カードを列の一番下に追加する</li>
  *   <li>PUT /api/tasks/{id}：カードのタイトル・説明文・期限・優先度を更新する</li>
+ *   <li>PUT /api/tasks/{id}/position：カードを指定した列の指定した位置へ移動する</li>
  * </ul>
  *
  * <p>Controller はリクエストの受け渡しだけを行い、実際の処理は TaskService に任せる。
@@ -113,5 +114,21 @@ public class TaskController {
 	@PutMapping("/{id}")
 	public Task update(@PathVariable Integer id, @RequestBody UpdateTaskRequest request) {
 		return taskService.update(id, request);
+	}
+
+	/**
+	 * PUT /api/tasks/{id}/position にアクセスされたときに呼ばれる。
+	 * ボードでドラッグ&ドロップしたカードを、指定した列の指定した位置へ移動する。
+	 *
+	 * <p>移動元と移動先の両方の列の並び順が変わるので、GET /api/tasks と同じ形ですべてのカードを返す。
+	 * 入力が正しくないときは 400 Bad Request、カードが見つからないときは 404 Not Found が返る。
+	 *
+	 * @param id      移動するカードの id
+	 * @param request 移動先の列と位置。例：{"status":"in_progress","index":1}
+	 * @return すべてのカード（position → id の順）
+	 */
+	@PutMapping("/{id}/position")
+	public List<Task> move(@PathVariable Integer id, @RequestBody MoveTaskRequest request) {
+		return taskService.move(id, request);
 	}
 }

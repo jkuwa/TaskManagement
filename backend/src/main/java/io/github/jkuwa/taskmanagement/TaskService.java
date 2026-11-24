@@ -1,5 +1,6 @@
 package io.github.jkuwa.taskmanagement;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -151,6 +152,83 @@ public class TaskService {
 		return task;
 	}
 	// JPA が自動で UPDATE 実行
+
+	/**
+	 * カードを、指定した列の指定した位置へ移動する（ボードでのドラッグ&ドロップ。docs/spec.md の F-19, F-20）。
+	 *
+	 * <p>処理の流れ：
+	 * <ol>
+	 *   <li>移動先の列のカードを並び順で取り出し、動かすカードがあれば取り除く</li>
+	 *   <li>index の位置に動かすカードを入れ、上から 0, 1, 2… と position を振り直す</li>
+	 *   <li>別の列から来たときは、移動元の列も 0 から振り直す（抜けた穴を詰める）</li>
+	 * </ol>
+	 * 毎回 0 から振り直すので、position は列ごとに 0, 1, 2… と連番になる。
+	 *
+	 * <p>入力のチェック：
+	 * <ul>
+	 *   <li>status が todo / in_progress / done 以外なら移動しない</li>
+	 *   <li>index がない・負・移動先の列の枚数（動かすカードを除く）より大きいなら移動しない</li>
+	 * </ul>
+	 * 移動しないときは 400 Bad Request を返す。カードが見つからないときは 404 Not Found を返す。
+	 *
+	 * <p>移動元と移動先の両方の列の position が変わるので、すべてのカードを返す。
+	 * findAll の SELECT の前に、Hibernate が書き換えた内容を自動で DB に送る（flush）ので、
+	 * 移動したあとの並びで返る。
+	 *
+	 * @param id      移動するカードの id
+	 * @param request 移動先の列と位置
+	 * @return すべてのカード（position → id の順）
+	 * @throws ResponseStatusException 入力が正しくないとき（400）、カードが見つからないとき（404）
+	 */
+	@Transactional
+	public List<Task> move(Integer id, MoveTaskRequest request) {
+		String status = request.status();
+		if (status == null || !STATUSES.contains(status)) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status が正しくありません");
+		}
+
+		Task task = findById(id);
+		String fromStatus = task.getStatus();
+
+		// 移動先の列のカード（動かすカード自身は除く）
+		// removeIf：条件に合う要素をリストから取り除く。同じ列の中で動かすときに、自分を一度抜くため
+		List<Task> targetTasks = new ArrayList<>(taskRepository.findByStatusOrderByPositionAscIdAsc(status));
+		targetTasks.removeIf(t -> t.getId().equals(id));
+
+		Integer index = request.index();
+		// index は 0（一番上）〜 targetTasks.size()（一番下）まで
+		if (index == null || index < 0 || index > targetTasks.size()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "index が正しくありません");
+		}
+
+		targetTasks.add(index, task);
+		renumber(targetTasks, status);
+
+		// 別の列から来たときは、移動元の列の穴を詰める
+		if (!fromStatus.equals(status)) {
+			// SELECT の直前に、Hibernate が読み込んだとき（findById(id)）の値と今の値を比べ、変わったカードを先に UPDATE する（flush）。
+			// そのため、動かしたカードは DB でも移動先の status になっていて、ここでは取得されない
+			renumber(taskRepository.findByStatusOrderByPositionAscIdAsc(fromStatus), fromStatus);
+		}
+
+		return findAll();
+	}
+	// JPA が自動で UPDATE 実行
+
+	/**
+	 * リストの順番どおりに、position を 0, 1, 2… と振り直す。
+	 *
+	 * <p>移動元の列を読み込むとき、SELECT の前に Hibernate が書き換えた内容を DB に送る（flush）。
+	 * 動かしたカードはすでに移動先の status になっているので、移動元の列のリストには入らない。
+	 *
+	 * @param tasks  並べたい順のカード
+	 * @param status 列（todo / in_progress / done）
+	 */
+	private void renumber(List<Task> tasks, String status) {
+		for (int i = 0; i < tasks.size(); i++) {
+			tasks.get(i).move(status, i);
+		}
+	}
 
 	/**
 	 * タイトルをチェックし、前後の空白を取り除いたものを返す。カードの追加と更新で共通に使う。

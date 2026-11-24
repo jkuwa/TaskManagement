@@ -54,3 +54,23 @@ export async function updateTask(id: number, fields: TaskFields): Promise<Task> 
   }
   return res.json()
 }
+
+/**
+ * カードを指定した列の指定した位置へ移動する（PUT /api/tasks/{id}/position）。
+ * ドラッグ&ドロップしたときに使う（F-19, F-20）。
+ *
+ * 移動元と移動先の両方の列の並び順が変わるので、すべてのカードが返ってくる（GET /api/tasks と同じ形）。
+ *
+ * @param index 移動先の列の中での位置（0 始まり。動かすカード自身を除いた並びで数える）
+ */
+export async function moveTask(id: number, status: TaskStatus, index: number): Promise<Task[]> {
+  const res = await fetch(`/api/tasks/${id}/position`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, index }),
+  })
+  if (!res.ok) {
+    throw new Error(`カードの移動に失敗しました（${res.status}）`)
+  }
+  return res.json()
+}
