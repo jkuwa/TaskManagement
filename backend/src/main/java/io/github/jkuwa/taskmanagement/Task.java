@@ -145,6 +145,21 @@ public class Task {
 		this.priority = priority;
 	}
 
+	/**
+	 * カードが入っている列（status）と、列の中での並び順（position）を書き換える。
+	 * カードを移動する API で使う。
+	 *
+	 * <p>動かしたカードだけでなく、同じ列のほかのカードの position を振り直すときにも使う。
+	 * update と同じく、トランザクションの終わりに JPA が自動で UPDATE 文を実行する。
+	 *
+	 * @param status   状態（todo / in_progress / done）
+	 * @param position 列の中での並び順
+	 */
+	public void move(String status, int position) {
+		this.status = status;
+		this.position = position;
+	}
+
 	// ---- getter（値を取り出すメソッド）----
 	// フィールドの値を取得するためのメソッド。フィールドがprivateなので、メソッドを通さないと外部からアクセスできない。
 	public Integer getId() {

@@ -59,4 +59,19 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
 	 * @return 一番下のカード。列が空なら空の Optional
 	 */
 	Optional<Task> findTopByStatusOrderByPositionDesc(String status);
+
+	/**
+	 * 指定した列（status）のカードを、並び順（position → id の順）で取得する。
+	 * カードを移動したときに、列の中の position を振り直すために使う。
+	 *
+	 * <ul>
+	 *   <li>findByStatus：status が引数と同じものに絞る</li>
+	 *   <li>OrderByPositionAscIdAsc：position の小さい順、同じなら id の小さい順</li>
+	 * </ul>
+	 * 実行される SQL のイメージ：SELECT * FROM tasks WHERE status = ? ORDER BY position ASC, id ASC
+	 *
+	 * @param status 列（todo / in_progress / done）
+	 * @return その列のカードのリスト。1件もなければ空のリスト
+	 */
+	List<Task> findByStatusOrderByPositionAscIdAsc(String status);
 }
