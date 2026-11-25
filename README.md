@@ -34,6 +34,9 @@ PCのブラウザで動作します。
 ```
 TaskManagement/
 ├── README.md
+├── .claude/
+│   └── skills/
+│       └── quality-check/  # 品質チェックのスキル（Claude Code で /quality-check）
 ├── compose.yaml          # 開発用 PostgreSQL の設定（Docker Compose）
 ├── backend/              # バックエンド（Spring Boot）
 │   └── config/           # 静的解析（Checkstyle・SpotBugs）の設定
