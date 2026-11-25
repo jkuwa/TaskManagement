@@ -257,9 +257,9 @@ export function Board() {
         */}
         <DragOverlay dropAnimation={null}>
           {activeTask && (
-            <article className="card card-overlay">
+            <div className="card card-overlay">
               <CardContent task={activeTask} />
-            </article>
+            </div>
           )}
         </DragOverlay>
       </DndContext>
