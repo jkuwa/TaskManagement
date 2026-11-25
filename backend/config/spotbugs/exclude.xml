@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	SpotBugs で、誤検知として除外する指摘の一覧。
+	除外するときは、なぜ問題ないのかをコメントに書く。
+-->
+<FindBugsFilter>
+	<!--
+		EI_EXPOSE_REP2：受け取ったオブジェクトをそのままフィールドに入れると「外から中身を書き換えられるかもしれない」という指摘。
+		Controller・Service は、Spring が作った部品（Bean）をコンストラクタで受け取る（コンストラクタインジェクション）。
+		これは Spring の標準の書き方で、受け取った部品を共有して使うのが目的なので、コピーする必要はない。
+	-->
+	<Match>
+		<Class name="~io\.github\.jkuwa\.taskmanagement\..*(Controller|Service)"/>
+		<Bug pattern="EI_EXPOSE_REP2"/>
+	</Match>
+</FindBugsFilter>
