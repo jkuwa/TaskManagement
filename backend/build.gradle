@@ -34,6 +34,14 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	// DB を Java のクラスとして扱うためのライブラリ（Spring Data JPA と、その中身の Hibernate が含まれる）
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// 入力チェック（Bean Validation）。@NotBlank・@Size などをリクエストの項目に付けてチェックできるようにする
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// Flyway：テーブルの作成・変更を SQL ファイル（src/main/resources/db/migration）で管理する（マイグレーション）
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	// Flyway で PostgreSQL を扱うための部品
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	// Actuator：アプリの状態を確認する API（/actuator/health）を追加する
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	// PostgreSQL に接続するためのドライバー。アプリを動かすときだけ必要なので runtimeOnly にする
 	runtimeOnly 'org.postgresql:postgresql'
 	// テストを書くためのライブラリ（JUnit、MockMvc などが含まれる）
@@ -50,6 +58,12 @@ dependencies {
 // テストコードが JUnit 5 の記法で書かれている場合、これがないとJUnit 4 のやり方でテストを探してしまうため、テストコードが動かない
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// ./gradlew bootRun で起動するときは、開発用の設定（application-dev.properties）も読み込む
+// （SQL をログに出す、すでにある開発用 DB を Flyway の管理に切り替える、など）
+tasks.named('bootRun') {
+	systemProperty 'spring.profiles.active', 'dev'
 }
 
 // ---- 静的解析（コードを動かさずにチェックする）----

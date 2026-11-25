@@ -11,7 +11,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * tasks テーブルが Entity（Task クラス）から自動で作られているかを確かめるテスト。
+ * tasks テーブルが Flyway のマイグレーション（src/main/resources/db/migration）で作られているかを確かめるテスト。
+ *
+ * <p>テスト用の PostgreSQL は毎回空の状態で起動するので、V1・V2 の SQL が順に実行されてテーブルができる。
+ * テーブルと Entity（Task クラス）の定義が合っていなければ、Hibernate の確認（ddl-auto=validate）で起動に失敗する。
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class) // テスト用の PostgreSQL コンテナを自動で起動
@@ -49,5 +52,32 @@ class TaskTableTests {
 		assertThat(columns).containsExactlyInAnyOrder(
 				"id", "title", "description", "priority", "due_date",
 				"status", "position", "created_at", "updated_at");
+	}
+
+	/**
+	 * 作成日時・更新日時が、タイムゾーン付きの日時（TIMESTAMPTZ）になっていることを確かめる（V2 のマイグレーション）。
+	 * information_schema では TIMESTAMPTZ は "timestamp with time zone" と表示される。
+	 */
+	@Test
+	void timestampColumnsHaveTimeZone() {
+		List<String> types = jdbcTemplate.queryForList(
+				"SELECT data_type FROM information_schema.columns"
+						+ " WHERE table_name = 'tasks' AND column_name IN ('created_at', 'updated_at')",
+				String.class);
+
+		assertThat(types).containsOnly("timestamp with time zone").hasSize(2);
+	}
+
+	/**
+	 * Flyway が実行したマイグレーションを記録していることを確かめる。
+	 * flyway_schema_history は、Flyway が「どのファイルを実行したか」を記録するテーブル。
+	 */
+	@Test
+	void migrationsAreRecorded() {
+		List<String> versions = jdbcTemplate.queryForList(
+				"SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank",
+				String.class);
+
+		assertThat(versions).containsExactly("1", "2");
 	}
 }

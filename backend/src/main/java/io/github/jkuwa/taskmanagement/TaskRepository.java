@@ -58,7 +58,7 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
 	 * @param status 列（todo / in_progress / done）
 	 * @return 一番下のカード。列が空なら空の Optional
 	 */
-	Optional<Task> findTopByStatusOrderByPositionDesc(String status);
+	Optional<Task> findTopByStatusOrderByPositionDesc(TaskStatus status);
 
 	/**
 	 * 指定した列（status）のカードを、並び順（position → id の順）で取得する。
@@ -73,5 +73,5 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
 	 * @param status 列（todo / in_progress / done）
 	 * @return その列のカードのリスト。1件もなければ空のリスト
 	 */
-	List<Task> findByStatusOrderByPositionAscIdAsc(String status);
+	List<Task> findByStatusOrderByPositionAscIdAsc(TaskStatus status);
 }

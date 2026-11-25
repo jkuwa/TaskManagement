@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.Valid;
+
 /**
  * カード（タスク）を読み書きするための API。
  *
@@ -27,8 +29,12 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>Controller はリクエストの受け渡しだけを行い、実際の処理は TaskService に任せる。
  *
- * <p>戻り値の Task は、Spring Boot が getter（getTitle() など）をもとに自動で JSON に変換する。
+ * <p>TaskService が返した Task（Entity）は、TaskResponse（レスポンス用の DTO）に詰め替えて返す。
+ * Spring Boot が TaskResponse の項目をもとに自動で JSON に変換する。
  * 例：{"id":1,"title":"…","dueDate":"2026-11-20","status":"todo",…}
+ *
+ * <p>エラーのとき（カードが見つからない、入力が正しくない）は、ApiExceptionHandler が
+ * ProblemDetail の形（application/problem+json）でエラーの理由を返す。
  */
 @RestController
 @RequestMapping("/api/tasks") // このクラスの URL はすべて /api/tasks から始まる
@@ -63,21 +69,21 @@ public class TaskController {
 	 * @return すべてのカード（position → id の順）。1件もなければ []
 	 */
 	@GetMapping
-	public List<Task> findAll() {
-		return taskService.findAll();
+	public List<TaskResponse> findAll() {
+		return toResponses(taskService.findAll());
 	}
 
 	/**
 	 * GET /api/tasks/{id} にアクセスされたときに呼ばれる（例：/api/tasks/1）。
 	 * {@code @PathVariable} で、URL の {id} の部分を引数 id として受け取る。
-	 * 見つからないときは TaskService が例外を投げ、404 Not Found が返る。
+	 * 見つからないときは TaskService が TaskNotFoundException を投げ、404 Not Found が返る。
 	 *
 	 * @param id 取得したいカードの id
 	 * @return 見つかったカード
 	 */
 	@GetMapping("/{id}")
-	public Task findById(@PathVariable Integer id) {
-		return taskService.findById(id);
+	public TaskResponse findById(@PathVariable Integer id) {
+		return TaskResponse.from(taskService.findById(id));
 	}
 
 	/**
@@ -86,18 +92,19 @@ public class TaskController {
 	 * <ul>
 	 *   <li>{@code @PostMapping}：POST メソッドのリクエストを受け取る（データを新しく作るときに使う）</li>
 	 *   <li>{@code @RequestBody}：リクエストの本文（JSON）を CreateTaskRequest に変換して受け取る</li>
+	 *   <li>{@code @Valid}：CreateTaskRequest に付けたルール（{@code @NotBlank} など）で入力をチェックする。
+	 *       ルールに合わなければ、このメソッドは呼ばれずに 400 Bad Request が返る</li>
 	 *   <li>{@code @ResponseStatus(HttpStatus.CREATED)}：成功したら 200 OK ではなく 201 Created を返す
 	 *       （「新しく作った」ことを表すステータス）</li>
 	 * </ul>
-	 * 入力が正しくないときは TaskService が例外を投げ、400 Bad Request が返る。
 	 *
 	 * @param request 追加するカードのタイトルと列。例：{"title":"資料を作る","status":"todo"}
 	 * @return 作ったカード（id・position・作成日時などが入っている）
 	 */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
-	public Task create(@RequestBody CreateTaskRequest request) {
-		return taskService.create(request);
+	public TaskResponse create(@Valid @RequestBody CreateTaskRequest request) {
+		return TaskResponse.from(taskService.create(request));
 	}
 
 	/**
@@ -114,8 +121,8 @@ public class TaskController {
 	 * @return 更新したカード
 	 */
 	@PutMapping("/{id}")
-	public Task update(@PathVariable Integer id, @RequestBody UpdateTaskRequest request) {
-		return taskService.update(id, request);
+	public TaskResponse update(@PathVariable Integer id, @Valid @RequestBody UpdateTaskRequest request) {
+		return TaskResponse.from(taskService.update(id, request));
 	}
 
 	/**
@@ -130,8 +137,8 @@ public class TaskController {
 	 * @return すべてのカード（position → id の順）
 	 */
 	@PutMapping("/{id}/position")
-	public List<Task> move(@PathVariable Integer id, @RequestBody MoveTaskRequest request) {
-		return taskService.move(id, request);
+	public List<TaskResponse> move(@PathVariable Integer id, @Valid @RequestBody MoveTaskRequest request) {
+		return toResponses(taskService.move(id, request));
 	}
 
 	/**
@@ -150,5 +157,18 @@ public class TaskController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@PathVariable Integer id) {
 		taskService.delete(id);
+	}
+
+	/**
+	 * カードのリストを、TaskResponse のリストに詰め替える。
+	 *
+	 * <p>stream()：リストの要素を1つずつ流して処理する仕組み。
+	 * map(TaskResponse::from) で1件ずつ TaskResponse.from(task) を呼び、toList() でリストに戻す。
+	 *
+	 * @param tasks カードのリスト
+	 * @return API で返す形にしたカードのリスト
+	 */
+	private List<TaskResponse> toResponses(List<Task> tasks) {
+		return tasks.stream().map(TaskResponse::from).toList();
 	}
 }
