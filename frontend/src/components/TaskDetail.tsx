@@ -13,6 +13,8 @@ type Props = {
   hasSaveError: boolean
   /** 入力した内容を保存する処理（Board から渡される）。失敗しても例外は投げない */
   onSave: (fields: TaskFields) => Promise<void>
+  /** カードを削除する処理（Board から渡される）。失敗しても例外は投げない */
+  onDelete: () => Promise<void>
   /** 詳細画面を閉じる処理（Board から渡される） */
   onClose: () => void
 }
@@ -33,8 +35,9 @@ type FormValues = {
  *   入力が {@link SAVE_DELAY_MS} ミリ秒止まってから保存する。閉じるときは待たずにすぐ保存する
  * - タイトルが空のあいだは、タイトルだけ変更前の値で保存する。空のまま閉じたら変更前のタイトルに戻る
  * - ［閉じる］ボタン・Esc キー・外側のクリックで閉じる
+ * - ［削除］ボタンで、確認してからカードを削除する（F-18）
  */
-export function TaskDetail({ task, hasSaveError, onSave, onClose }: Props) {
+export function TaskDetail({ task, hasSaveError, onSave, onDelete, onClose }: Props) {
   const [values, setValues] = useState<FormValues>({
     title: task.title,
     description: task.description ?? '', // ??：左が null か undefined なら右の値を使う
@@ -102,6 +105,23 @@ export function TaskDetail({ task, hasSaveError, onSave, onClose }: Props) {
   function handleClose() {
     flush()
     onClose()
+  }
+
+  /**
+   * ［削除］を押したときに呼ばれる。確認で「OK」を選んだときだけ削除する（F-18）。
+   *
+   * 削除の前に、保存待ちの入力をすぐに送り（flush）、すべての保存が終わるのを待つ。
+   * - 待たないと、削除したあとに消えたカードへ保存が届いて、「保存できませんでした」が出る
+   * - 入力を捨てずに送っておくので、削除に失敗しても入力した内容は残る
+   */
+  async function handleDelete() {
+    // confirm：ブラウザの確認ダイアログを出す。「OK」なら true、「キャンセル」なら false
+    if (!window.confirm('このカードを削除しますか？')) return
+
+    flush()
+    await queueRef.current
+    // 削除できたら Board がこのカードを一覧から取り除くので、詳細画面も消える
+    onDelete()
   }
 
   /** マウスの位置が詳細画面の外側（背景）か */
@@ -194,6 +214,9 @@ export function TaskDetail({ task, hasSaveError, onSave, onClose }: Props) {
         </div>
         {hasSaveError && <p className="form-error">保存できませんでした</p>}
         <div className="detail-actions">
+          <button type="button" className="btn btn-danger" onClick={handleDelete}>
+            削除
+          </button>
           <button type="button" className="btn" onClick={() => dialogRef.current?.close()}>
             閉じる
           </button>

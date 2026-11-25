@@ -221,6 +221,12 @@ body {
   color: #fff;
 }
 
+.btn-danger {
+  border-color: #dc2626;
+  background: #fff;
+  color: #dc2626;
+}
+
 .btn-text {
   border-color: transparent;
   background: transparent;
@@ -290,6 +296,6 @@ body {
 
 .detail-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   margin-top: 8px;
 }

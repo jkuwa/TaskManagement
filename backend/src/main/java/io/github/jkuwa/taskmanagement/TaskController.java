@@ -3,6 +3,7 @@ package io.github.jkuwa.taskmanagement;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>POST /api/tasks：カードを列の一番下に追加する</li>
  *   <li>PUT /api/tasks/{id}：カードのタイトル・説明文・期限・優先度を更新する</li>
  *   <li>PUT /api/tasks/{id}/position：カードを指定した列の指定した位置へ移動する</li>
+ *   <li>DELETE /api/tasks/{id}：カードを削除する</li>
  * </ul>
  *
  * <p>Controller はリクエストの受け渡しだけを行い、実際の処理は TaskService に任せる。
@@ -130,5 +132,23 @@ public class TaskController {
 	@PutMapping("/{id}/position")
 	public List<Task> move(@PathVariable Integer id, @RequestBody MoveTaskRequest request) {
 		return taskService.move(id, request);
+	}
+
+	/**
+	 * DELETE /api/tasks/{id} にアクセスされたときに呼ばれる。詳細画面の［削除］でカードを削除する。
+	 *
+	 * <ul>
+	 *   <li>{@code @DeleteMapping}：DELETE メソッドのリクエストを受け取る（データを削除するときに使う）</li>
+	 *   <li>{@code @ResponseStatus(HttpStatus.NO_CONTENT)}：成功したら 204 No Content を返す
+	 *       （「成功したが、返す本文はない」ことを表すステータス）</li>
+	 * </ul>
+	 * カードが見つからないときは 404 Not Found が返る。
+	 *
+	 * @param id 削除するカードの id
+	 */
+	@DeleteMapping("/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void delete(@PathVariable Integer id) {
+		taskService.delete(id);
 	}
 }
