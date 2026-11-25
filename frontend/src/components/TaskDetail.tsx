@@ -121,7 +121,7 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onClose }: Pr
     flush()
     await queueRef.current
     // 削除できたら Board がこのカードを一覧から取り除くので、詳細画面も消える
-    await onDelete()
+    onDelete()
   }
 
   /** マウスの位置が詳細画面の外側（背景）か */
