@@ -1,3 +1,5 @@
+/// <reference types="vitest/config" />
+// ↑ この下の test の設定に、Vitest の型が付くようにする
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
@@ -15,5 +17,12 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8080',
     },
+  },
+  // テスト（Vitest）の設定
+  test: {
+    // 部品（コンポーネント）を描画して確かめるために、ブラウザのまね（jsdom）の中でテストを動かす
+    environment: 'jsdom',
+    // テストの前に読み込む準備のファイル
+    setupFiles: ['./src/test/setup.ts'],
   },
 })
