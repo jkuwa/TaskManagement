@@ -152,6 +152,10 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onClose }: Pr
   }
 
   return (
+    // onMouseDown / onClick は「詳細画面の外側（背景）をクリックしたら閉じる」ためのもの。
+    // キーボードでは Esc キーで同じように閉じられる（<dialog> の標準の動き）ので、
+    // キーボード用のイベントがないという jsx-a11y の指摘は、ここでは当てはまらない
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <dialog
       ref={dialogRef}  // React が、この <dialog> を dialogRef.current に入れてくれる
       className="detail"

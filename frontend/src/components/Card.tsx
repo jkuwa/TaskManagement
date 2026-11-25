@@ -18,13 +18,13 @@ type Props = {
 export function Card({ task, onOpen }: Props) {
   // useDraggable：この要素をドラッグできるようにする（dnd-kit）
   // - setNodeRef：ドラッグできる要素を dnd-kit に教えるための ref
-  // - attributes：読み上げソフト向けの属性（aria-* など）
+  // - attributes：読み上げソフト向けの属性（role・tabIndex・aria-* など）
   // - listeners：ドラッグを始めるためのイベント（onPointerDown）
   // - isDragging：このカードをドラッグしている最中か
   // useDraggableで返ってくるオブジェクトから、該当する値をそれぞれの変数に入れる
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id: task.id })
 
-  // <article> はもともと押せる要素ではないので、キーボードでも開けるようにする
+  // <div> はもともと押せる要素ではないので、キーボードでも開けるようにする
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault() // スペースでページがスクロールするのを止める
@@ -35,13 +35,16 @@ export function Card({ task, onOpen }: Props) {
   return (
     // role="button"：読み上げソフトなどに「押せるもの」と伝える
     // tabIndex={0}：Tab キーで選べるようにする
+    //   この2つは attributes にも同じ値が入っているが、lint は {...attributes} の中身を見られないので明示する。
+    //   <button> にしないのは、中に <p> や <div> を入れられないため
     // data-task-id：ドラッグ中に、カードが入る位置を計算するときの目印（Board で使う）
     // ドラッグ中は元の場所のカードを薄く表示する（マウスについてくるのは Board の DragOverlay）
-    <article
+    <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
       className={isDragging ? 'card is-dragging' : 'card'}
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
       role="button"
       tabIndex={0}
       data-task-id={task.id}
@@ -49,7 +52,7 @@ export function Card({ task, onOpen }: Props) {
       onKeyDown={handleKeyDown}
     >
       <CardContent task={task} />
-    </article>
+    </div>
   )
 }
 

@@ -134,8 +134,13 @@ class TaskControllerTests {
 				.content(json));
 	}
 
-	/** tasks テーブルの件数を数える（作られていないことを確かめるときに使う） */
-	private int countTasks() {
+	/**
+	 * tasks テーブルの件数を数える（作られていないことを確かめるときに使う）
+	 *
+	 * <p>queryForObject は結果がないと null を返すことがあるので、int ではなく Integer のまま返す。
+	 * int にすると null のときに NullPointerException になり、テストの失敗理由が分かりにくくなる。
+	 */
+	private Integer countTasks() {
 		return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM tasks", Integer.class);
 	}
 

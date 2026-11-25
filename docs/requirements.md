@@ -124,6 +124,8 @@ DB で管理するのは「カード（タスク）」と「サブタスク」�
 | 言語 | TypeScript | 7.0 |
 | ビルドツール | Vite | 8.3 |
 | ドラッグ&ドロップ | dnd-kit（@dnd-kit/core） | 6.3 |
+| テスト | Vitest | 5.1 |
+| コードのチェック（lint） | oxlint | 1.90 |
 
 ### 9.2 バックエンド
 
@@ -133,6 +135,8 @@ DB で管理するのは「カード（タスク）」と「サブタスク」�
 | フレームワーク | Spring Boot | 4.1.2 |
 | ビルドツール | Gradle | 9.9.1 |
 | DBアクセス | Spring Data JPA | Spring Boot に合わせる |
+| テスト | JUnit 5、Testcontainers（テスト用の PostgreSQL を Docker で起動） | Spring Boot に合わせる |
+| コードのチェック（静的解析） | Checkstyle（書き方）、SpotBugs（バグになりやすい書き方） | 14.4、4.10 |
 
 ### 9.3 データベース
 

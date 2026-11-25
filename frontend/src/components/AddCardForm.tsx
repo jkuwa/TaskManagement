@@ -79,6 +79,9 @@ export function AddCardForm({ onAdd }: Props) {
         maxLength={MAX_TITLE_LENGTH}
         placeholder="タイトルを入力"
         aria-label="カードのタイトル"
+        // ［＋ カード追加］を押した直後にすぐ入力できるようにする。利用者が自分で開いたときだけ
+        // フォーカスが移るので、画面を開いたときに勝手に移る（jsx-a11y が心配している）ことはない
+        // oxlint-disable-next-line jsx-a11y/no-autofocus
         autoFocus
       />
       {hasError && <p className="form-error">保存できませんでした</p>}
