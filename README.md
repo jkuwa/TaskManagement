@@ -9,9 +9,9 @@ PCのブラウザで動作します。
 - Gitによるバージョン管理を実践する
 - タスク管理アプリの作成を通して、設計から実装までの流れを経験する
 
-## 機能（予定）
+## 機能
 
-詳しくは [要件定義書](docs/requirements.md) を参照してください。
+要件定義書の「必須」の機能を実装しています（サブタスクなどの「任意」の機能は未実装）。詳しくは [要件定義書](docs/requirements.md) を参照してください。
 
 - 「未着手」「進行中」「完了」の3列のボード
 - カードの追加・編集・削除
@@ -36,6 +36,7 @@ TaskManagement/
 ├── README.md
 ├── compose.yaml          # 開発用 PostgreSQL の設定（Docker Compose）
 ├── backend/              # バックエンド（Spring Boot）
+│   └── config/           # 静的解析（Checkstyle・SpotBugs）の設定
 ├── frontend/             # フロントエンド（React + TypeScript + Vite）
 ├── mockup/               # 画面イメージ確認用のモックアップ（index.html をブラウザで開く）
 └── docs/
@@ -117,14 +118,22 @@ docker compose down      # 停止（データは残る）
 docker compose down -v   # 停止してデータも削除する
 ```
 
-### テストの実行
+### テスト・チェックの実行
 
 テストでは Testcontainers がテスト用の PostgreSQL を自動で起動します。Docker Desktop を起動した状態で実行してください（`docker compose up` は不要です）。
 
 ```sh
 cd backend
-./gradlew test
+./gradlew test    # テストだけ
+./gradlew check   # テスト＋静的解析（Checkstyle・SpotBugs）
 ```
+
+静的解析は、フロントエンドの lint にあたるものです。指摘が1件でもあると失敗します。
+
+- Checkstyle：コードの書き方（import・名前の付け方・`{ }` の付け忘れなど）をチェックする。ルールは `backend/config/checkstyle/checkstyle.xml`
+- SpotBugs：バグになりやすい書き方（null の扱いなど）を見つける。誤検知として除外するものは `backend/config/spotbugs/exclude.xml`
+
+結果は `backend/build/reports/checkstyle/` と `backend/build/reports/spotbugs/` に HTML で出ます。
 
 ## フロントエンドの起動方法
 
@@ -153,7 +162,9 @@ npm run dev
 
 ```sh
 cd frontend
-npm run lint    # コードの書き方のチェック（oxlint）
-npm run test    # 単体テスト（Vitest）
-npm run build   # 型チェックと本番用のビルド（dist/ に出力）
+npm run lint        # コードの書き方のチェック（oxlint。設定は .oxlintrc.json）
+npm run typecheck   # 型チェック（TypeScript）
+npm run test        # 単体テスト（Vitest）
+npm run check       # lint・型チェック・テストをまとめて実行
+npm run build       # 型チェックと本番用のビルド（dist/ に出力）
 ```
