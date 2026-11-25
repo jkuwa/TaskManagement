@@ -77,9 +77,11 @@ cd backend
 ./gradlew bootRun
 ```
 
-起動後、`http://localhost:8080/api/health` にアクセスして `{"status":"ok"}` が返れば動作しています。
+起動後、`http://localhost:8080/actuator/health` にアクセスして `{"status":"UP",…}` が返れば動作しています（Spring Boot Actuator の機能。DB につながっていないと `DOWN` になります）。
 
-起動時に `Task` クラス（`@Entity`）をもとに `tasks` テーブルが自動で作られます（`spring.jpa.hibernate.ddl-auto=update`）。テーブルの中身は次のコマンドで確認できます。
+`./gradlew bootRun` で起動すると、開発用の設定（`application-dev.properties`。実行した SQL をログに出すなど）も読み込まれます。
+
+起動時に Flyway が `backend/src/main/resources/db/migration` の SQL を順に実行して、`tasks` テーブルを作ります。テーブルを変えるときは、既存のファイルは書き換えず、`V3__内容.sql` のように新しいファイルを足します。テーブルの中身は次のコマンドで確認できます。
 
 ```sh
 docker compose exec db psql -U taskmanagement -c '\d tasks'
@@ -94,7 +96,7 @@ docker compose exec db psql -U taskmanagement -c '\d tasks'
 docker compose exec -T db psql -U taskmanagement -d taskmanagement < backend/src/main/resources/db/sample-data.sql
 ```
 
-カードの API は次のとおりです。
+カードの API は次のとおりです。エラー（400・404）のときは、理由を ProblemDetail（RFC 9457）の形で返します（例：`{"status":400,"detail":"タイトルを入力してください",…}`）。
 
 | メソッド・URL | 内容 |
 | --- | --- |
@@ -167,7 +169,7 @@ npm run dev
 cd frontend
 npm run lint        # コードの書き方のチェック（oxlint。設定は .oxlintrc.json）
 npm run typecheck   # 型チェック（TypeScript）
-npm run test        # 単体テスト（Vitest）
+npm run test        # 単体テスト・コンポーネントのテスト（Vitest・React Testing Library）
 npm run check       # lint・型チェック・テストをまとめて実行
 npm run build       # 型チェックと本番用のビルド（dist/ に出力）
 ```

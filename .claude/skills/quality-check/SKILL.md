@@ -70,7 +70,7 @@ description: このリポジトリ（Trello風タスク管理アプリ）全体�
 - requirements.md の機能要件のうち、優先度が「任意」の機能が未実装なのは差異として扱わない。「必須」の機能だけを見る。ただし任意の機能がすでに実装されていたら、その分は対象にする
 - 実装にあるのにドキュメントに書かれていない動き（ボタン、選択肢、エラー表示、保存のタイミングなど）も差異として挙げる
 - spec.md を変えたら acceptance.md の「2. 詳細仕様の確認」も直すルールがあるので、2つの内容が揃っているかを見る
-- database.md のテーブル定義を、Entity（`Task.java` など）と照らし合わせる。テーブルは `ddl-auto=update` で Entity から作られることに注意する
+- database.md のテーブル定義を、Flyway のマイグレーション（`backend/src/main/resources/db/migration`）と Entity（`Task.java` など）の両方と照らし合わせる
 - requirements.md「9. 技術・制約」のバージョンを、`frontend/package.json`・`backend/build.gradle`・`backend/gradle/wrapper/gradle-wrapper.properties`・`compose.yaml` と照らし合わせる
 - README の起動手順・API の一覧・チェックの手順が、今のコードと合っているか
 
