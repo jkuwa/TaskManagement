@@ -74,3 +74,16 @@ export async function moveTask(id: number, status: TaskStatus, index: number): P
   }
   return res.json()
 }
+
+/**
+ * カードを削除する（DELETE /api/tasks/{id}）。詳細画面の［削除］で使う（F-18）。
+ *
+ * 成功すると 204 No Content（本文なし）が返るので、res.json() は呼ばない
+ * （本文がないのに res.json() を呼ぶと例外になる）。
+ */
+export async function deleteTask(id: number): Promise<void> {
+  const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+  if (!res.ok) {
+    throw new Error(`カードの削除に失敗しました（${res.status}）`)
+  }
+}

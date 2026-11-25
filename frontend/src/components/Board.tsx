@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/core'
 import type { DragEndEvent, DragMoveEvent, DragStartEvent } from '@dnd-kit/core'
 import { useEffect, useState } from 'react'
-import { createTask, fetchTasks, moveTask, updateTask } from '../api'
+import { createTask, deleteTask, fetchTasks, moveTask, updateTask } from '../api'
 import type { Task, TaskFields, TaskStatus } from '../types'
 import { COLUMNS, getDropIndex, groupByStatus, reorderTasks } from '../utils'
 import { CardContent } from './Card'
@@ -56,6 +56,7 @@ function getDropTarget(event: DragMoveEvent | DragEndEvent): DropTarget | null {
  * ボード画面。画面を開いたときにカードを読み込み、3つの列に分けて表示する。
  * 各列からカードを追加でき、カードをクリックすると詳細画面を開いて編集できる。
  * カードをドラッグ&ドロップすると、別の列や同じ列の別の位置へ移動できる（F-19, F-20）。
+ * 詳細画面の［削除］でカードを削除できる（F-18）。
  */
 export function Board() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
@@ -163,6 +164,27 @@ export function Board() {
     }
   }
 
+  /**
+   * カードを削除する（F-18）。確認は詳細画面（TaskDetail）で済ませてから呼ばれる。
+   * 削除できたら一覧から取り除き、詳細画面を閉じる。同じ列のカードの position はバックエンドで詰め直すが、
+   * 画面上は並び順が変わらないので、一覧を読み直さずに取り除くだけでよい。
+   * 失敗したときは詳細画面を開いたまま「保存できませんでした」を出し、操作を続けられるようにする。
+   */
+  async function handleDelete(id: number) {
+    try {
+      await deleteTask(id)
+      setState((prev) =>
+        prev.kind === 'success'
+          ? { kind: 'success', tasks: prev.tasks.filter((task) => task.id !== id) }
+          : prev,
+      )
+      setOpenId(null)
+      setHasSaveError(false)
+    } catch {
+      setHasSaveError(true)
+    }
+  }
+
   function handleDragStart(event: DragStartEvent) {
     setActiveId(Number(event.active.id))
   }
@@ -248,6 +270,7 @@ export function Board() {
           task={openTask}
           hasSaveError={hasSaveError}
           onSave={(fields) => handleSave(openTask.id, fields)}
+          onDelete={() => handleDelete(openTask.id)}
           onClose={() => setOpenId(null)}
         />
       )}

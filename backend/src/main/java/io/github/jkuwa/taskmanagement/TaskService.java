@@ -216,6 +216,27 @@ public class TaskService {
 	// JPA が自動で UPDATE 実行
 
 	/**
+	 * 指定した id のカードを削除する（詳細画面の［削除］。docs/spec.md の F-18）。
+	 *
+	 * <p>DB の行を消す物理削除にする（削除済みの印を付けて残す論理削除にはしない）。
+	 * サブタスクを作ったときは、外部キーの ON DELETE CASCADE で一緒に消える（docs/database.md）。
+	 *
+	 * <p>削除したあと、同じ列の残りのカードの position を 0 から振り直す（抜けた穴を詰める）。
+	 * findByStatus… の SELECT の前に、Hibernate が DELETE を DB に送る（flush）ので、
+	 * 削除したカードは取得されない。
+	 *
+	 * @param id 削除するカードの id
+	 * @throws ResponseStatusException カードが見つからないとき（404 Not Found）
+	 */
+	@Transactional
+	public void delete(Integer id) {
+		Task task = findById(id);
+		taskRepository.delete(task);
+		renumber(taskRepository.findByStatusOrderByPositionAscIdAsc(task.getStatus()), task.getStatus());
+	}
+	// JPA が自動で DELETE・UPDATE 実行
+
+	/**
 	 * リストの順番どおりに、position を 0, 1, 2… と振り直す。
 	 *
 	 * <p>移動元の列を読み込むとき、SELECT の前に Hibernate が書き換えた内容を DB に送る（flush）。

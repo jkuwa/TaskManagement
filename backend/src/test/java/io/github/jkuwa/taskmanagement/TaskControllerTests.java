@@ -1,6 +1,7 @@
 package io.github.jkuwa.taskmanagement;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -442,5 +443,37 @@ class TaskControllerTests {
 				{"status":"todo","index":0}
 				""")
 			.andExpect(status().isNotFound());
+	}
+
+	// ---- DELETE /api/tasks/{id}（カードの削除）----
+	// setUp のデータ：未着手 = [id 2（position 0）, id 1（position 1）]、進行中 = [id 3（position 0）]
+
+	/**
+	 * 未着手の一番上のカード（id 2）を削除すると、204 No Content が返り、DB から消えることを確かめる（F-18）。
+	 * 同じ列の残りのカード（id 1）は一番上に詰められ、ほかの列のカードは変わらない。
+	 */
+	@Test
+	void deleteRemovesTaskAndRenumbersColumn() throws Exception {
+		mockMvc.perform(delete("/api/tasks/2"))
+			.andExpect(status().isNoContent());
+
+		flushAndClear();
+		assertThat(countTasks()).isEqualTo(2);
+		mockMvc.perform(get("/api/tasks/2"))
+			.andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/tasks/1"))
+			.andExpect(jsonPath("$.status").value("todo"))
+			.andExpect(jsonPath("$.position").value(0));
+		mockMvc.perform(get("/api/tasks/3"))
+			.andExpect(jsonPath("$.status").value("in_progress"))
+			.andExpect(jsonPath("$.position").value(0));
+	}
+
+	/** 存在しない id を指定すると、404 Not Found が返り、カードが消えないことを確かめる */
+	@Test
+	void deleteReturns404WhenNotFound() throws Exception {
+		mockMvc.perform(delete("/api/tasks/9999"))
+			.andExpect(status().isNotFound());
+		assertThat(countTasks()).isEqualTo(3);
 	}
 }
