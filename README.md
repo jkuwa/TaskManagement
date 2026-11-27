@@ -81,7 +81,7 @@ cd backend
 
 `./gradlew bootRun` で起動すると、開発用の設定（`application-dev.properties`。実行した SQL をログに出すなど）も読み込まれます。
 
-起動時に Flyway が `backend/src/main/resources/db/migration` の SQL を順に実行して、`tasks` テーブルを作ります。テーブルを変えるときは、既存のファイルは書き換えず、`V3__内容.sql` のように新しいファイルを足します。テーブルの中身は次のコマンドで確認できます。
+起動時に Flyway が `backend/src/main/resources/db/migration` の SQL を順に実行して、`tasks` テーブルを作ります。テーブルを変えるときは、既存のファイルは書き換えず、`V2__内容.sql` のように新しいファイルを足します。テーブルの中身は次のコマンドで確認できます。
 
 ```sh
 docker compose exec db psql -U taskmanagement -c '\d tasks'

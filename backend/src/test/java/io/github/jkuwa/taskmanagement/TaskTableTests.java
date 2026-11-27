@@ -13,7 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 /**
  * tasks テーブルが Flyway のマイグレーション（src/main/resources/db/migration）で作られているかを確かめるテスト。
  *
- * <p>テスト用の PostgreSQL は毎回空の状態で起動するので、V1・V2 の SQL が順に実行されてテーブルができる。
+ * <p>テスト用の PostgreSQL は毎回空の状態で起動するので、db/migration の SQL が順に実行されてテーブルができる。
  * テーブルと Entity（Task クラス）の定義が合っていなければ、Hibernate の確認（ddl-auto=validate）で起動に失敗する。
  */
 @SpringBootTest
@@ -55,7 +55,7 @@ class TaskTableTests {
 	}
 
 	/**
-	 * 作成日時・更新日時が、タイムゾーン付きの日時（TIMESTAMPTZ）になっていることを確かめる（V2 のマイグレーション）。
+	 * 作成日時・更新日時が、タイムゾーン付きの日時（TIMESTAMPTZ）になっていることを確かめる。
 	 * information_schema では TIMESTAMPTZ は "timestamp with time zone" と表示される。
 	 */
 	@Test
@@ -78,6 +78,6 @@ class TaskTableTests {
 				"SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank",
 				String.class);
 
-		assertThat(versions).containsExactly("1", "2");
+		assertThat(versions).containsExactly("1");
 	}
 }
