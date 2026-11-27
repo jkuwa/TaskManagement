@@ -1,21 +1,21 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
-import { AddCardForm } from './AddCardForm'
+import { AddForm } from './AddForm'
 
 /**
- * カード追加フォームのテスト（docs/spec.md の F-11）。
+ * 追加フォームのテスト（docs/spec.md の F-11, F-21）。カードの追加と同じ文字で確かめる。
  *
  * - render：部品を描画する
  * - screen.getByRole など：画面から要素を探す（見つからなければテストが失敗する）
  * - userEvent：クリックや文字の入力を、利用者の操作と同じように行う
  * - vi.fn()：呼ばれたかどうか・何を渡されたかを記録する、テスト用の関数
  */
-describe('AddCardForm', () => {
+describe('AddForm', () => {
   /** フォームを描画して［＋ カード追加］を押し、入力欄を開く */
   async function openForm(onAdd = vi.fn<(title: string) => Promise<void>>().mockResolvedValue(undefined)) {
     const user = userEvent.setup()
-    render(<AddCardForm onAdd={onAdd} />)
+    render(<AddForm buttonLabel="＋ カード追加" inputLabel="カードのタイトル" placeholder="タイトルを入力" onAdd={onAdd} />)
     await user.click(screen.getByRole('button', { name: '＋ カード追加' }))
     return { user, onAdd, input: screen.getByRole('textbox', { name: 'カードのタイトル' }) }
   }
@@ -63,6 +63,13 @@ describe('AddCardForm', () => {
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '＋ カード追加' })).toBeInTheDocument()
+  })
+
+  test('Esc キーのブラウザの動き（詳細画面を閉じる）は止める', async () => {
+    const { input } = await openForm()
+
+    // fireEvent はイベントを出し、preventDefault で止められたら false を返す
+    expect(fireEvent.keyDown(input, { key: 'Escape' })).toBe(false)
   })
 
   test('タイトルは100文字までしか入力できない', async () => {

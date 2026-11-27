@@ -104,4 +104,52 @@ describe('useTasks', () => {
     expect(deleted).toBe(false)
     expect(result.current.hasSaveError).toBe(true)
   })
+
+  test('サブタスクを追加したら、そのカードのサブタスクの最後に足す', async () => {
+    const { result } = await renderLoaded()
+    vi.mocked(api.createSubtask)
+      .mockResolvedValueOnce({ id: 10, title: '1つ目', done: false })
+      .mockResolvedValueOnce({ id: 11, title: '2つ目', done: false })
+
+    await act(() => result.current.addSubtask(2, '1つ目'))
+    await act(() => result.current.addSubtask(2, '2つ目'))
+
+    expect(api.createSubtask).toHaveBeenCalledWith(2, '1つ目')
+    const state = result.current.state
+    if (state.kind !== 'success') throw new Error('読み込めていない')
+    expect(state.tasks.find((t) => t.id === 2)?.subtasks.map((s) => s.title)).toEqual(['1つ目', '2つ目'])
+    // ほかのカードは変わらない
+    expect(state.tasks.find((t) => t.id === 1)?.subtasks).toEqual([])
+  })
+
+  test('サブタスクの追加に失敗したら、例外を呼び出し元に伝える', async () => {
+    const { result } = await renderLoaded()
+    vi.mocked(api.createSubtask).mockRejectedValue(new Error('失敗'))
+
+    await expect(result.current.addSubtask(2, '1つ目')).rejects.toThrow('失敗')
+  })
+
+  test('カードの保存の結果を待っている間に追加したサブタスクは、保存の結果で消えない', async () => {
+    const { result } = await renderLoaded()
+    // 保存の結果（サブタスクが入っていない）が、サブタスクの追加より後に届くようにする
+    let resolveUpdate: (task: ReturnType<typeof makeTask>) => void = () => {}
+    vi.mocked(api.updateTask).mockReturnValue(new Promise((resolve) => (resolveUpdate = resolve)))
+    vi.mocked(api.createSubtask).mockResolvedValue({ id: 10, title: 'サブタスク', done: false })
+
+    let saving: Promise<void> = Promise.resolve()
+    act(() => {
+      saving = result.current.saveTask(1, { title: '新しいタイトル', description: null, dueDate: null, priority: null })
+    })
+    await act(() => result.current.addSubtask(1, 'サブタスク'))
+    await act(async () => {
+      resolveUpdate(makeTask(1, 'todo', { title: '新しいタイトル' }))
+      await saving
+    })
+
+    const state = result.current.state
+    if (state.kind !== 'success') throw new Error('読み込めていない')
+    const task = state.tasks.find((t) => t.id === 1)
+    expect(task?.title).toBe('新しいタイトル')
+    expect(task?.subtasks.map((s) => s.title)).toEqual(['サブタスク'])
+  })
 })

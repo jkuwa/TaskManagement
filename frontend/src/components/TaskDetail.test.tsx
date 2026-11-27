@@ -21,12 +21,13 @@ describe('TaskDetail', () => {
   })
 
   /** 詳細画面を描画する。onSave などはテスト用の関数（vi.fn）にする */
-  function renderDetail() {
+  function renderDetail(task = makeTask(1, 'todo', { title: '資料を作る', priority: 'high', dueDate: '2026-11-20' })) {
     const props = {
-      task: makeTask(1, 'todo', { title: '資料を作る', priority: 'high', dueDate: '2026-11-20' }),
+      task,
       hasSaveError: false,
       onSave: vi.fn<(fields: TaskFields) => Promise<void>>().mockResolvedValue(undefined),
       onDelete: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      onAddSubtask: vi.fn<(title: string) => Promise<void>>().mockResolvedValue(undefined),
       onClose: vi.fn<() => void>(),
     }
     // advanceTimers：userEvent が操作の合間に待つときも、偽物のタイマーを進める
@@ -117,5 +118,51 @@ describe('TaskDetail', () => {
     await act(() => vi.advanceTimersByTimeAsync(500))
 
     expect(onSave).not.toHaveBeenCalled()
+  })
+
+  test('サブタスクを追加した順に表示し、完了したものにはチェックを付ける', () => {
+    renderDetail(
+      makeTask(1, 'todo', {
+        subtasks: [
+          { id: 1, title: '構成を考える', done: true },
+          { id: 2, title: '下書きを書く', done: false },
+        ],
+      }),
+    )
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    expect(checkboxes).toHaveLength(2)
+    // チェックボックスの名前は、横に表示しているサブタスクの内容（<label> で囲んでいるため）
+    expect(screen.getByRole('checkbox', { name: '構成を考える' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: '下書きを書く' })).not.toBeChecked()
+  })
+
+  test('サブタスクがないときは一覧を出さず、［＋ サブタスクを追加］だけを表示する', () => {
+    renderDetail()
+
+    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '＋ サブタスクを追加' })).toBeInTheDocument()
+  })
+
+  test('［＋ サブタスクを追加］から内容を入力して Enter で追加する', async () => {
+    const { user, onAddSubtask } = renderDetail()
+
+    await user.click(screen.getByRole('button', { name: '＋ サブタスクを追加' }))
+    await user.type(screen.getByRole('textbox', { name: 'サブタスクの内容' }), '  構成を考える  {Enter}')
+
+    expect(onAddSubtask).toHaveBeenCalledWith('構成を考える')
+    // 続けて追加できるよう、入力欄は空になって開いたまま
+    expect(screen.getByRole('textbox', { name: 'サブタスクの内容' })).toHaveValue('')
+  })
+
+  test('サブタスクの追加に失敗したら「保存できませんでした」を出し、入力した文字は残す', async () => {
+    const { user, onAddSubtask } = renderDetail()
+    onAddSubtask.mockRejectedValue(new Error('失敗'))
+
+    await user.click(screen.getByRole('button', { name: '＋ サブタスクを追加' }))
+    await user.type(screen.getByRole('textbox', { name: 'サブタスクの内容' }), '構成を考える{Enter}')
+
+    expect(await screen.findByText('保存できませんでした')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'サブタスクの内容' })).toHaveValue('構成を考える')
   })
 })

@@ -14,6 +14,7 @@ function makeTask(id: number, status: TaskStatus, position = 0): Task {
     position,
     createdAt: '2026-11-20T10:00:00',
     updatedAt: '2026-11-20T10:00:00',
+    subtasks: [],
   }
 }
 

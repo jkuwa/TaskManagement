@@ -24,7 +24,7 @@ function updateTasks(prev: LoadState, update: (tasks: Task[]) => Task[]): LoadSt
 }
 
 /**
- * カードの一覧を読み込み、追加・更新・移動・削除する処理をまとめたカスタムフック。
+ * カードの一覧を読み込み、追加・更新・移動・削除する処理と、サブタスクを追加する処理をまとめたカスタムフック。
  *
  * カスタムフック：use で始まる名前の関数の中で useState などのフックを使い、状態とその操作をまとめたもの。
  * Board（画面）からカードのデータの扱いを切り離し、Board は表示とドラッグ&ドロップに集中できるようにする。
@@ -62,7 +62,7 @@ export function useTasks() {
    * カードを指定した列の一番下に追加する。
    * API が返したカード（DB が振った id・position が入っている）を、一覧の最後に足して表示する。
    * 一覧は position の順に並んでいて、新しいカードはその列で一番大きい position になるので、最後に足せばよい。
-   * 保存に失敗したときは createTask が投げた例外がそのまま呼び出し元（AddCardForm）に伝わる。
+   * 保存に失敗したときは createTask が投げた例外がそのまま呼び出し元（AddForm）に伝わる。
    */
   async function addTask(status: TaskStatus, title: string) {
     const created = await api.createTask(title, status)
@@ -78,7 +78,14 @@ export function useTasks() {
   async function saveTask(id: number, fields: TaskFields) {
     try {
       const updated = await api.updateTask(id, fields)
-      setState((prev) => updateTasks(prev, (tasks) => tasks.map((task) => (task.id === id ? updated : task))))
+      // サブタスクは画面に出ているもの（task.subtasks）を残す。
+      // 保存の結果を待っている間にサブタスクを追加すると、結果のほうには入っていないことがあるため。
+      // サブタスクは addSubtask などで一覧に反映しているので、画面のものが最新になっている
+      setState((prev) =>
+        updateTasks(prev, (tasks) =>
+          tasks.map((task) => (task.id === id ? { ...updated, subtasks: task.subtasks } : task)),
+        ),
+      )
       setHasSaveError(false)
     } catch {
       setHasSaveError(true)
@@ -138,5 +145,19 @@ export function useTasks() {
     }
   }
 
-  return { state, hasSaveError, addTask, saveTask, moveTask, deleteTask }
+  /**
+   * カードにサブタスクを追加する（F-21）。
+   * API が返したサブタスクを、そのカードのサブタスクの最後に足して表示する（サブタスクは追加した順に並ぶ）。
+   * 保存に失敗したときは、addTask と同じく例外がそのまま呼び出し元（AddForm）に伝わる。
+   */
+  async function addSubtask(taskId: number, title: string) {
+    const created = await api.createSubtask(taskId, title)
+    setState((prev) =>
+      updateTasks(prev, (tasks) =>
+        tasks.map((task) => (task.id === taskId ? { ...task, subtasks: [...task.subtasks, created] } : task)),
+      ),
+    )
+  }
+
+  return { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask }
 }

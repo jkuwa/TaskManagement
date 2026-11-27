@@ -51,7 +51,7 @@ function getDropTarget(event: DragMoveEvent | DragEndEvent): DropTarget | null {
  * この部品は表示と、詳細画面の開け閉め、ドラッグ&ドロップの操作だけを受け持つ。
  */
 export function Board() {
-  const { state, hasSaveError, addTask, saveTask, moveTask, deleteTask } = useTasks()
+  const { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask } = useTasks()
   // 詳細画面を開いているカードの id。閉じているときは null
   const [openId, setOpenId] = useState<number | null>(null)
   // ドラッグしているカードの id。ドラッグしていないときは null
@@ -137,7 +137,7 @@ export function Board() {
               tasks={groups[column.status]}
               activeId={activeId}
               dropIndex={dropTarget?.status === column.status ? dropTarget.index : null}
-              // AddCardForm で［追加］したとき（onAdd(title) が呼ばれたとき）に addTask が実行される
+              // AddForm で［追加］したとき（onAdd(title) が呼ばれたとき）に addTask が実行される
               onAdd={(title) => addTask(column.status, title)}
               // {(id) => setOpenId(id)} の略。setOpenId(id) とすると描画のたびにすぐ実行されてしまう。
               onOpen={setOpenId}
@@ -164,6 +164,7 @@ export function Board() {
           hasSaveError={hasSaveError}
           onSave={(fields) => saveTask(openTask.id, fields)}
           onDelete={() => handleDelete(openTask.id)}
+          onAddSubtask={(title) => addSubtask(openTask.id, title)}
           onClose={() => setOpenId(null)}
         />
       )}
