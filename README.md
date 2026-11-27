@@ -11,12 +11,13 @@ PCのブラウザで動作します。
 
 ## 機能
 
-要件定義書の「必須」の機能を実装しています（サブタスクなどの「任意」の機能は未実装）。詳しくは [要件定義書](docs/requirements.md) を参照してください。
+要件定義書の「必須」の機能と、「任意」の機能のうちサブタスクの追加（F-21）を実装しています。詳しくは [要件定義書](docs/requirements.md) を参照してください。
 
 - 「未着手」「進行中」「完了」の3列のボード
 - カードの追加・編集・削除
 - カードへの説明文・期限・優先度の設定（任意）
 - ドラッグ&ドロップでのカードの列移動・列内の並べ替え
+- カードの詳細画面でのサブタスクの追加
 - DBへの自動保存（再読み込みや再起動をしてもデータが残る）
 
 ※ カリキュラムの進行に合わせて追加・変更します。
@@ -96,16 +97,17 @@ docker compose exec db psql -U taskmanagement -c '\d tasks'
 docker compose exec -T db psql -U taskmanagement -d taskmanagement < backend/src/main/resources/db/sample-data.sql
 ```
 
-カードの API は次のとおりです。エラー（400・404）のときは、理由を ProblemDetail（RFC 9457）の形で返します（例：`{"status":400,"detail":"タイトルを入力してください",…}`）。
+カード・サブタスクの API は次のとおりです。エラー（400・404）のときは、理由を ProblemDetail（RFC 9457）の形で返します（例：`{"status":400,"detail":"タイトルを入力してください",…}`）。
 
 | メソッド・URL | 内容 |
 | --- | --- |
-| `GET /api/tasks` | すべてのカードを並び順（position → id）で返す |
+| `GET /api/tasks` | すべてのカードを並び順（position → id）で返す。各カードの `subtasks` に、サブタスクを追加した順で入れる |
 | `GET /api/tasks/{id}` | 指定した id のカードを返す。存在しなければ 404 |
 | `POST /api/tasks` | カードを指定した列の一番下に追加し、201 で作ったカードを返す。入力が正しくなければ 400 |
 | `PUT /api/tasks/{id}` | カードのタイトル・説明文・期限・優先度を更新する。4項目をまとめて送り、null で解除する。入力が正しくなければ 400、存在しなければ 404 |
 | `PUT /api/tasks/{id}/position` | カードを指定した列の指定した位置（0 始まり）へ移動し、すべてのカードを返す。入力が正しくなければ 400、存在しなければ 404 |
-| `DELETE /api/tasks/{id}` | カードを削除し、204（本文なし）を返す。同じ列の残りのカードの並び順は詰める。存在しなければ 404 |
+| `DELETE /api/tasks/{id}` | カードを削除し、204（本文なし）を返す。カードのサブタスクも削除し、同じ列の残りのカードの並び順は詰める。存在しなければ 404 |
+| `POST /api/tasks/{taskId}/subtasks` | カードにサブタスクを未完了で追加し、201 で作ったサブタスクを返す。入力が正しくなければ 400、カードが存在しなければ 404 |
 
 ```sh
 curl http://localhost:8080/api/tasks
@@ -114,6 +116,7 @@ curl -X POST http://localhost:8080/api/tasks -H 'Content-Type: application/json'
 curl -X PUT http://localhost:8080/api/tasks/1 -H 'Content-Type: application/json' -d '{"title":"資料を作る","description":null,"dueDate":"2026-11-20","priority":"high"}'
 curl -X PUT http://localhost:8080/api/tasks/1/position -H 'Content-Type: application/json' -d '{"status":"in_progress","index":0}'
 curl -X DELETE http://localhost:8080/api/tasks/1
+curl -X POST http://localhost:8080/api/tasks/1/subtasks -H 'Content-Type: application/json' -d '{"title":"構成を考える"}'
 ```
 
 ### 4. DB を停止する
