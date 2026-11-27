@@ -188,7 +188,7 @@ public class TaskService {
 	 * 指定した id のカードを削除する（詳細画面の［削除］。docs/spec.md の F-18）。
 	 *
 	 * <p>DB の行を消す物理削除にする（削除済みの印を付けて残す論理削除にはしない）。
-	 * サブタスクを作ったときは、外部キーの ON DELETE CASCADE で一緒に消える（docs/database.md）。
+	 * カードのサブタスクも一緒に削除する（Task の subtasks に付けた cascade で Hibernate が消す。docs/database.md）。
 	 *
 	 * <p>削除したあと、同じ列の残りのカードの position を 0 から振り直す（抜けた穴を詰める）。
 	 * findByStatus… の SELECT の前に、Hibernate が DELETE を DB に送る（flush）ので、

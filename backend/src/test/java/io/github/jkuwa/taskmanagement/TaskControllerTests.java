@@ -58,22 +58,29 @@ class TaskControllerTests {
 	/**
 	 * コンストラクタを省略すると、コンパイラが引数なしのコンストラクタを自動で付け足してくれる。
 	 * 
-	 * 各テストの前に、tasks テーブルを空にしてからテストデータを入れる。
+	 * 各テストの前に、tasks・subtasks テーブルを空にしてからテストデータを入れる。
 	 * わざと position の順番をバラバラに入れて、並び順が正しいかを確かめられるようにしている。
+	 * サブタスクは「1番目のカード」（id 2）にだけ2つ入れる。
 	 * （TRUNCATE も @Transactional でテスト後に取り消される）
 	 * 
-	 * TRUNCATE TABLE tasks：tasksテーブルを空にする
+	 * TRUNCATE TABLE subtasks, tasks：2つのテーブルを空にする
+	 * （subtasks は tasks を外部キーで指しているので、tasks だけを空にすることはできない）
 	 * RESTART IDENTITY：id の番号を1から振り直す
 	 * これがないと、一度使った id は使えないため、テーブルを空にしてもテスト毎に id が次の番号からになってしまう
 	 */
 	@BeforeEach  // @Test メソッド毎に毎回呼ばれる
 	void setUp() {
-		jdbcTemplate.update("TRUNCATE TABLE tasks RESTART IDENTITY");
+		jdbcTemplate.update("TRUNCATE TABLE subtasks, tasks RESTART IDENTITY");
 		jdbcTemplate.update("""
 				INSERT INTO tasks (title, description, priority, due_date, status, position) VALUES
 					('2番目のカード', NULL, NULL, NULL, 'todo', 1),
 					('1番目のカード', '説明文', 'high', '2026-11-20', 'todo', 0),
 					('進行中のカード', NULL, 'low', NULL, 'in_progress', 0)
+				""");
+		jdbcTemplate.update("""
+				INSERT INTO subtasks (task_id, title, done) VALUES
+					(2, '構成を考える', TRUE),
+					(2, '下書きを書く', FALSE)
 				""");
 	}
 	// """ """：テキストブロック。改行も含めてそのまま１つの文字列になる。
@@ -91,7 +98,11 @@ class TaskControllerTests {
 			// position 0 のカードが先（同じ 0 どうしは id の小さい順）
 			.andExpect(jsonPath("$[0].title").value("1番目のカード"))
 			.andExpect(jsonPath("$[1].title").value("進行中のカード"))
-			.andExpect(jsonPath("$[2].title").value("2番目のカード"));
+			.andExpect(jsonPath("$[2].title").value("2番目のカード"))
+			// サブタスクも一緒に返る。サブタスクがないカードは []
+			.andExpect(jsonPath("$[0].subtasks.length()").value(2))
+			.andExpect(jsonPath("$[1].subtasks.length()").value(0))
+			.andExpect(jsonPath("$[2].subtasks.length()").value(0));
 	}
 
 	/**
@@ -110,7 +121,15 @@ class TaskControllerTests {
 			.andExpect(jsonPath("$.status").value("todo"))
 			.andExpect(jsonPath("$.position").value(0))
 			.andExpect(jsonPath("$.createdAt").isNotEmpty())
-			.andExpect(jsonPath("$.updatedAt").isNotEmpty());
+			.andExpect(jsonPath("$.updatedAt").isNotEmpty())
+			// サブタスクは追加した順（id の小さい順）に、id・内容・完了したかが返る
+			.andExpect(jsonPath("$.subtasks.length()").value(2))
+			.andExpect(jsonPath("$.subtasks[0].id").value(1))
+			.andExpect(jsonPath("$.subtasks[0].title").value("構成を考える"))
+			.andExpect(jsonPath("$.subtasks[0].done").value(true))
+			.andExpect(jsonPath("$.subtasks[1].id").value(2))
+			.andExpect(jsonPath("$.subtasks[1].title").value("下書きを書く"))
+			.andExpect(jsonPath("$.subtasks[1].done").value(false));
 	}
 
 	/**
@@ -167,7 +186,8 @@ class TaskControllerTests {
 			.andExpect(jsonPath("$.status").value("todo"))
 			.andExpect(jsonPath("$.position").value(2))
 			.andExpect(jsonPath("$.createdAt").isNotEmpty())
-			.andExpect(jsonPath("$.updatedAt").isNotEmpty());
+			.andExpect(jsonPath("$.updatedAt").isNotEmpty())
+			.andExpect(jsonPath("$.subtasks").isEmpty());
 
 		// DB にも保存されていて、一覧の最後に出てくる
 		mockMvc.perform(get("/api/tasks"))
@@ -331,7 +351,9 @@ class TaskControllerTests {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.description").isEmpty())
 			.andExpect(jsonPath("$.dueDate").isEmpty())
-			.andExpect(jsonPath("$.priority").isEmpty());
+			.andExpect(jsonPath("$.priority").isEmpty())
+			// サブタスクは更新しても変わらず返る
+			.andExpect(jsonPath("$.subtasks.length()").value(2));
 
 		// DB にも保存されている（DB から読み直して GET で確かめる）
 		flushAndClear();
@@ -413,7 +435,9 @@ class TaskControllerTests {
 			.andExpect(jsonPath("$[0].position").value(0))
 			.andExpect(jsonPath("$[1].id").value(3))
 			.andExpect(jsonPath("$[2].id").value(2))
-			.andExpect(jsonPath("$[2].position").value(1));
+			.andExpect(jsonPath("$[2].position").value(1))
+			// 移動の結果にもサブタスクが入る
+			.andExpect(jsonPath("$[2].subtasks.length()").value(2));
 
 		// DB にも保存されている（DB から読み直して GET で確かめる）
 		flushAndClear();
@@ -527,6 +551,19 @@ class TaskControllerTests {
 		mockMvc.perform(get("/api/tasks/3"))
 			.andExpect(jsonPath("$.status").value("in_progress"))
 			.andExpect(jsonPath("$.position").value(0));
+	}
+
+	/**
+	 * サブタスクのあるカード（id 2）を削除すると、そのカードのサブタスクも消えることを確かめる。
+	 * 外部キーの ON DELETE CASCADE で、DB が一緒に削除する（docs/database.md）。
+	 */
+	@Test
+	void deleteRemovesSubtasksOfTask() throws Exception {
+		mockMvc.perform(delete("/api/tasks/2"))
+			.andExpect(status().isNoContent());
+
+		flushAndClear();
+		assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM subtasks", Integer.class)).isZero();
 	}
 
 	/** 存在しない id を指定すると、404 Not Found が返り、カードが消えないことを確かめる */

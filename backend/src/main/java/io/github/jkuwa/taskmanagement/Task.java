@@ -2,15 +2,21 @@ package io.github.jkuwa.taskmanagement;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 
 /**
@@ -91,6 +97,26 @@ public class Task {
 	@UpdateTimestamp
 	@Column(nullable = false)
 	private Instant updatedAt;
+
+	/**
+	 * このカードのサブタスク（追加した順）。subtasks テーブルの列ではなく、つながりを表すフィールド。
+	 *
+	 * <ul>
+	 *   <li>{@code @OneToMany}：1対多のつながり。{@code mappedBy = "task"} で
+	 *       「つながりの持ち主は Subtask の task フィールド（task_id 列）」と示す。tasks テーブルに列は増えない</li>
+	 *   <li>{@code @OrderBy("id")}：読み込むときに id の小さい順（追加した順）に並べる</li>
+	 * </ul>
+	 * 初期値は LAZY（使うときに初めて読み込む）。カードと一緒に返すときは、
+	 * TaskRepository の {@code @EntityGraph} でまとめて読み込む（カードの枚数だけ SQL が増えないようにするため）。
+	 *
+	 * <p>{@code cascade = CascadeType.REMOVE}：カードを削除するときに、Hibernate がサブタスクも削除する。
+	 * DB にも ON DELETE CASCADE（V2__create_subtasks.sql）があるが、それだけだと、
+	 * 読み込み済みのサブタスクが「削除したカードを指したまま」Hibernate に残り、保存のときにエラーになる。
+	 * DB の ON DELETE CASCADE は、psql などで直接カードを消したときのために残しておく。
+	 */
+	@OneToMany(mappedBy = "task", cascade = CascadeType.REMOVE)
+	@OrderBy("id")
+	private List<Subtask> subtasks = new ArrayList<>();
 
 	// ---- コンストラクタ ----
 	/**
@@ -196,5 +222,14 @@ public class Task {
 
 	public Instant getUpdatedAt() {
 		return updatedAt;
+	}
+
+	/**
+	 * サブタスクの一覧を返す。外から追加・削除できないよう、読み取り専用の List にして返す。
+	 *
+	 * @return サブタスク（追加した順）
+	 */
+	public List<Subtask> getSubtasks() {
+		return Collections.unmodifiableList(subtasks);
 	}
 }
