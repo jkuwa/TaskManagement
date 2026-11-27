@@ -6,7 +6,7 @@ export type Priority = 'high' | 'medium' | 'low'
 
 /**
  * カード（タスク）。GET /api/tasks が返す JSON の1件分。
- * 項目はバックエンドの Task.java の getter と同じ。
+ * 項目はバックエンドの TaskResponse.java（レスポンス用の DTO）と同じ。
  * 未設定のときに null になる項目は「| null」を付けている。
  */
 export type Task = {
@@ -18,7 +18,9 @@ export type Task = {
   dueDate: string | null
   status: TaskStatus
   position: number
+  /** 作成日時。"2026-11-20T01:00:00Z" の形（UTC）の文字列 */
   createdAt: string
+  /** 更新日時。形は createdAt と同じ */
   updatedAt: string
 }
 

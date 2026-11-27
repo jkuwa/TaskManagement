@@ -7,7 +7,11 @@ export const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'done', label: '完了' },
 ]
 
-/** タイトルの最大文字数（docs/spec.md の F-11, F-13） */
+/**
+ * タイトルの最大文字数（docs/spec.md の F-11, F-13）。
+ * 入力欄の maxLength で使う。maxLength は JavaScript の文字列の長さ（UTF-16）で数えるので、絵文字などは1つで2文字になる。
+ * バックエンドの入力チェック（Task.MAX_TITLE_LENGTH と @Size）も同じ数え方にしている。
+ */
 export const MAX_TITLE_LENGTH = 100
 
 /** 優先度の表示名 */

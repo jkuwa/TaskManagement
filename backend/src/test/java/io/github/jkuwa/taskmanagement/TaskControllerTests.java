@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -27,12 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * TaskController（/api/tasks）のテスト。
  *
- * <p>HealthControllerTests と違い、@SpringBootTest でアプリ全体を組み立て、
+ * <p>@SpringBootTest でアプリ全体を組み立て、
  * テスト用の PostgreSQL（Testcontainers）に入れたデータが API から返ってくるところまで確かめる。
  * <ul>
  *   <li>@SpringBootTest：アプリ全体を組み立てる（ただし MockMvc は用意しない）</li>
- *   <li>@AutoConfigureMockMvc：@SpringBootTest と一緒に使い、MockMvc を使えるようにする
- *       （HealthControllerTests の @WebMvcTest には最初から含まれているので不要）</li>
+ *   <li>@AutoConfigureMockMvc：@SpringBootTest と一緒に使い、MockMvc を使えるようにする</li>
+ *   <li>MockMvc：実際にサーバーを起動せずに、リクエストを送ったことにして結果を確かめられるテスト用のクラス</li>
  *   <li>@Transactional：テストが終わったら DB への変更を取り消す（ほかのテストに影響しない）</li>
  * </ul>
  */
@@ -118,7 +119,11 @@ class TaskControllerTests {
 	@Test
 	void findByIdReturns404WhenNotFound() throws Exception {
 		mockMvc.perform(get("/api/tasks/9999"))
-			.andExpect(status().isNotFound());
+			.andExpect(status().isNotFound())
+			// エラーは ProblemDetail の形（application/problem+json）で、理由が detail に入る
+			.andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.status").value(404))
+			.andExpect(jsonPath("$.detail").value("カードが見つかりません（id：9999）"));
 	}
 
 	// ---- POST /api/tasks（カードの追加）----
@@ -191,6 +196,18 @@ class TaskControllerTests {
 			.andExpect(jsonPath("$.title").value("前後に空白"));
 	}
 
+	/**
+	 * 絵文字は1つで2文字と数える（String の length() で数える。フロントエンドの maxLength と同じ数え方）。
+	 * 50個（100文字）は作れて、51個（102文字）は 400 Bad Request になることを確かめる。
+	 */
+	@Test
+	void createCountsEmojiAsTwoCharacters() throws Exception {
+		postTask("{\"title\":\"" + "😀".repeat(50) + "\",\"status\":\"todo\"}")
+			.andExpect(status().isCreated());
+		postTask("{\"title\":\"" + "😀".repeat(51) + "\",\"status\":\"todo\"}")
+			.andExpect(status().isBadRequest());
+	}
+
 	/** ちょうど100文字のタイトルは作れることを確かめる */
 	@Test
 	void createAccepts100CharacterTitle() throws Exception {
@@ -210,6 +227,7 @@ class TaskControllerTests {
 	@ValueSource(strings = {
 		"{\"title\":\"\",\"status\":\"todo\"}",          // 空のタイトル
 		"{\"title\":\"   \",\"status\":\"todo\"}",       // 空白だけのタイトル
+		"{\"title\":\"　\",\"status\":\"todo\"}",        // 全角の空白だけのタイトル
 		"{\"status\":\"todo\"}",                         // タイトルがない
 		"{\"title\":\"カード\",\"status\":\"unknown\"}",  // ない列
 		"{\"title\":\"カード\"}",                         // 列がない
@@ -223,8 +241,35 @@ class TaskControllerTests {
 	@Test
 	void createReturns400WhenTitleTooLong() throws Exception {
 		postTask("{\"title\":\"" + "あ".repeat(101) + "\",\"status\":\"todo\"}")
-			.andExpect(status().isBadRequest());
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.detail").value("タイトルは100文字までです"));
 		assertThat(countTasks()).isEqualTo(3);
+	}
+
+	/**
+	 * 入力のチェックに引っかかったときは、ProblemDetail の detail に理由が入り、
+	 * errors に項目ごとの理由が入ることを確かめる。
+	 */
+	@Test
+	void createReturnsValidationMessages() throws Exception {
+		postTask("""
+				{"title":""}
+				""")
+			.andExpect(status().isBadRequest())
+			.andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.errors.title").value("タイトルを入力してください"))
+			.andExpect(jsonPath("$.errors.status").value("status を指定してください"));
+	}
+
+	/** 決まった値以外の status のときは、JSON を読み取れなかった理由が detail に入ることを確かめる */
+	@Test
+	void createReturnsMessageWhenStatusUnknown() throws Exception {
+		postTask("""
+				{"title":"カード","status":"unknown"}
+				""")
+			.andExpect(status().isBadRequest())
+			.andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.detail").isNotEmpty());
 	}
 
 	// ---- PUT /api/tasks/{id}（カードの更新）----
@@ -442,6 +487,16 @@ class TaskControllerTests {
 	}
 
 	/** 存在しない id を指定すると、404 Not Found が返ることを確かめる */
+	/** index が列の枚数より大きいときは、指定できる範囲が detail に入ることを確かめる */
+	@Test
+	void moveReturnsMessageWhenIndexTooLarge() throws Exception {
+		moveTask(1, """
+				{"status":"todo","index":2}
+				""")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.detail").value("index は0〜1で指定してください（指定された値：2）"));
+	}
+
 	@Test
 	void moveReturns404WhenNotFound() throws Exception {
 		moveTask(9999, """

@@ -3,10 +3,8 @@ package io.github.jkuwa.taskmanagement;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * カード（タスク）に関する処理をまとめるクラス（Service 層）。
@@ -17,7 +15,15 @@ import org.springframework.web.server.ResponseStatusException;
  *   <li>Service（このクラス）：業務の処理（ルールのチェック、複数の処理をまとめて実行するなど）</li>
  *   <li>Repository：DB の読み書き</li>
  * </ul>
- * 「空のタイトルは作らない」「新しいカードは列の一番下に入れる」といった処理をここに書く。
+ * 「新しいカードは列の一番下に入れる」「移動したら並び順を振り直す」といった処理をここに書く。
+ *
+ * <p>入力のチェックの分担：
+ * <ul>
+ *   <li>項目だけで分かるもの（タイトルが空、100文字を超える、status がない など）：
+ *       リクエストのクラスに付けたアノテーション（Bean Validation）で、Service を呼ぶ前にチェックする</li>
+ *   <li>DB を見ないと分からないもの（カードがあるか、index が列の枚数を超えていないか）：このクラスでチェックする</li>
+ * </ul>
+ * チェックに引っかかったら例外を投げる。HTTP のレスポンス（404 や 400）にするのは ApiExceptionHandler の役目。
  *
  * <p>@Service を付けると、Spring がこのクラスを部品（Bean）として自動で作り、Controller に渡してくれる。
  *
@@ -28,15 +34,6 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @Transactional(readOnly = true)
 public class TaskService {
-
-	/** タイトルの最大文字数（static final：クラスで1つだけの、変わらない値＝定数） */
-	static final int MAX_TITLE_LENGTH = 100;
-
-	/** status として使える値（列） */
-	private static final List<String> STATUSES = List.of("todo", "in_progress", "done");
-
-	/** priority として使える値（未設定の null はこれとは別に許可する） */
-	private static final List<String> PRIORITIES = List.of("high", "medium", "low");
 
 	private final TaskRepository taskRepository;
 
@@ -62,45 +59,32 @@ public class TaskService {
 	 * 指定した id のカードを取得する。
 	 *
 	 * <p>findById は Optional（値がないかもしれない入れ物）を返すので、
-	 * 見つからなければ orElseThrow で例外を投げる。
-	 * ResponseStatusException を投げると、Spring が 404 Not Found のレスポンスに変換してくれる。
+	 * 見つからなければ orElseThrow で TaskNotFoundException を投げる（ApiExceptionHandler が 404 Not Found にする）。
 	 *
 	 * @param id 取得したいカードの id
 	 * @return 見つかったカード
-	 * @throws ResponseStatusException 見つからなかったとき（404 Not Found）
+	 * @throws TaskNotFoundException 見つからなかったとき
 	 */
 	public Task findById(Integer id) {
 		return taskRepository.findById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+				.orElseThrow(() -> new TaskNotFoundException(id));
 	}
 
 	/**
 	 * カードを指定した列の一番下に追加する。
 	 *
-	 * <p>入力のチェック（docs/spec.md の F-11）：
-	 * <ul>
-	 *   <li>タイトルの前後の空白は取り除いて保存する（trim）</li>
-	 *   <li>タイトルが空・空白だけなら作らない</li>
-	 *   <li>タイトルが {@value #MAX_TITLE_LENGTH} 文字を超えるなら作らない</li>
-	 *   <li>status が todo / in_progress / done 以外なら作らない</li>
-	 * </ul>
-	 * 作らないときは 400 Bad Request（リクエストの内容が正しくない）を返す。
+	 * <p>入力のチェック（空のタイトル、100文字を超えるタイトル、status がない）は
+	 * CreateTaskRequest のアノテーションで済んでいる。ここではタイトルの前後の空白を取り除いて保存する。
 	 *
 	 * <p>クラスに付けた @Transactional(readOnly = true) は読み取り専用なので、
 	 * 書き込みをするこのメソッドには @Transactional を付け直す（メソッドに付けたほうが優先される）。
 	 *
 	 * @param request 追加するカードのタイトルと列
 	 * @return 保存したカード（DB が振った id や作成日時が入っている）
-	 * @throws ResponseStatusException 入力が正しくないとき（400 Bad Request）
 	 */
 	@Transactional
 	public Task create(CreateTaskRequest request) {
-		String title = validateTitle(request.title());
-		String status = request.status();
-		// List.of で作ったリストは contains(null) で例外になるので、先に null を確かめる
-		if (status == null || !STATUSES.contains(status)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status が正しくありません");
-		}
+		TaskStatus status = request.status();
 
 		// 列の一番下のカードの position + 1 にする。列が空なら 0
 		int position = taskRepository.findTopByStatusOrderByPositionDesc(status)
@@ -108,19 +92,18 @@ public class TaskService {
 				.orElse(0);
 
 		// new Task を DB にINSERT し、id なども入った状態の Task を Controller に返す
-		return taskRepository.save(new Task(title, status, position));
+		return taskRepository.save(new Task(request.title().strip(), status, position));
 	}
 
 	/**
 	 * 指定した id のカードの、タイトル・説明文・期限・優先度を更新する（詳細画面での編集）。
 	 *
-	 * <p>入力のチェック（docs/spec.md の F-13〜F-16）：
+	 * <p>入力のチェック（タイトル、日付の形式、優先度の値）は UpdateTaskRequest で済んでいる。ここでは次のことをする。
 	 * <ul>
-	 *   <li>タイトルは追加のときと同じ（前後の空白を取り除く・空なら更新しない・{@value #MAX_TITLE_LENGTH} 文字まで）</li>
-	 *   <li>説明文は空白だけなら null（未設定）にする</li>
-	 *   <li>優先度は high / medium / low / null（未設定）以外なら更新しない</li>
+	 *   <li>タイトルの前後の空白を取り除く</li>
+	 *   <li>説明文が空白だけなら null（未設定）にする（docs/spec.md の F-17）</li>
 	 * </ul>
-	 * 更新しないときは 400 Bad Request を返す。カードが見つからないときは 404 Not Found を返す。
+	 * カードが見つからないときは TaskNotFoundException を投げる。
 	 *
 	 * <p>findById で読み込んだ Task の値（リポジトリを使用して取得した情報）を書き換えると、
 	 * メソッドが終わるとき（トランザクションの終わり）に
@@ -129,18 +112,10 @@ public class TaskService {
 	 * @param id      更新するカードの id
 	 * @param request 更新後のタイトル・説明文・期限・優先度
 	 * @return 更新したカード
-	 * @throws ResponseStatusException 入力が正しくないとき（400）、カードが見つからないとき（404）
+	 * @throws TaskNotFoundException カードが見つからないとき
 	 */
 	@Transactional
 	public Task update(Integer id, UpdateTaskRequest request) {
-		String title = validateTitle(request.title());
-
-		String priority = request.priority();
-		if (priority != null && !PRIORITIES.contains(priority)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "priority が正しくありません");
-		}
-
-		// 空白だけの説明文は「入っていない」扱いにする（docs/spec.md の F-17）
 		String description = request.description();
 		if (description != null && description.isBlank()) {
 			description = null;
@@ -148,7 +123,7 @@ public class TaskService {
 
 		Task task = findById(id);
 		// Task.java の update メソッド
-		task.update(title, description, request.dueDate(), priority);
+		task.update(request.title().strip(), description, request.dueDate(), request.priority());
 		return task;
 	}
 	// JPA が自動で UPDATE 実行
@@ -164,12 +139,8 @@ public class TaskService {
 	 * </ol>
 	 * 毎回 0 から振り直すので、position は列ごとに 0, 1, 2… と連番になる。
 	 *
-	 * <p>入力のチェック：
-	 * <ul>
-	 *   <li>status が todo / in_progress / done 以外なら移動しない</li>
-	 *   <li>index がない・負・移動先の列の枚数（動かすカードを除く）より大きいなら移動しない</li>
-	 * </ul>
-	 * 移動しないときは 400 Bad Request を返す。カードが見つからないときは 404 Not Found を返す。
+	 * <p>入力のチェック：status・index がない、index が負のときは MoveTaskRequest で済んでいる。
+	 * index が移動先の列の枚数（動かすカードを除く）より大きいときは、ここで InvalidTaskPositionException を投げる。
 	 *
 	 * <p>移動元と移動先の両方の列の position が変わるので、すべてのカードを返す。
 	 * findAll の SELECT の前に、Hibernate が書き換えた内容を自動で DB に送る（flush）ので、
@@ -178,34 +149,32 @@ public class TaskService {
 	 * @param id      移動するカードの id
 	 * @param request 移動先の列と位置
 	 * @return すべてのカード（position → id の順）
-	 * @throws ResponseStatusException 入力が正しくないとき（400）、カードが見つからないとき（404）
+	 * @throws TaskNotFoundException        カードが見つからないとき
+	 * @throws InvalidTaskPositionException index が列の枚数より大きいとき
 	 */
 	@Transactional
 	public List<Task> move(Integer id, MoveTaskRequest request) {
-		String status = request.status();
-		if (status == null || !STATUSES.contains(status)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status が正しくありません");
-		}
-
+		TaskStatus status = request.status();
 		Task task = findById(id);
-		String fromStatus = task.getStatus();
+		TaskStatus fromStatus = task.getStatus();
 
 		// 移動先の列のカード（動かすカード自身は除く）
 		// removeIf：条件に合う要素をリストから取り除く。同じ列の中で動かすときに、自分を一度抜くため
 		List<Task> targetTasks = new ArrayList<>(taskRepository.findByStatusOrderByPositionAscIdAsc(status));
 		targetTasks.removeIf(t -> t.getId().equals(id));
 
-		Integer index = request.index();
-		// index は 0（一番上）〜 targetTasks.size()（一番下）まで
-		if (index == null || index < 0 || index > targetTasks.size()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "index が正しくありません");
+		int index = request.index();
+		// index は 0（一番上）〜 targetTasks.size()（一番下）まで。0 以上かは MoveTaskRequest でチェック済み
+		if (index > targetTasks.size()) {
+			throw new InvalidTaskPositionException(index, targetTasks.size());
 		}
 
 		targetTasks.add(index, task);
 		renumber(targetTasks, status);
 
 		// 別の列から来たときは、移動元の列の穴を詰める
-		if (!fromStatus.equals(status)) {
+		// （enum は値ごとにオブジェクトが1つだけなので、!= で比べてよい）
+		if (fromStatus != status) {
 			// SELECT の直前に、Hibernate が読み込んだとき（findById(id)）の値と今の値を比べ、変わったカードを先に UPDATE する（flush）。
 			// そのため、動かしたカードは DB でも移動先の status になっていて、ここでは取得されない
 			renumber(taskRepository.findByStatusOrderByPositionAscIdAsc(fromStatus), fromStatus);
@@ -226,7 +195,7 @@ public class TaskService {
 	 * 削除したカードは取得されない。
 	 *
 	 * @param id 削除するカードの id
-	 * @throws ResponseStatusException カードが見つからないとき（404 Not Found）
+	 * @throws TaskNotFoundException カードが見つからないとき
 	 */
 	@Transactional
 	public void delete(Integer id) {
@@ -239,35 +208,12 @@ public class TaskService {
 	/**
 	 * リストの順番どおりに、position を 0, 1, 2… と振り直す。
 	 *
-	 * <p>移動元の列を読み込むとき、SELECT の前に Hibernate が書き換えた内容を DB に送る（flush）。
-	 * 動かしたカードはすでに移動先の status になっているので、移動元の列のリストには入らない。
-	 *
 	 * @param tasks  並べたい順のカード
 	 * @param status 列（todo / in_progress / done）
 	 */
-	private void renumber(List<Task> tasks, String status) {
+	private void renumber(List<Task> tasks, TaskStatus status) {
 		for (int i = 0; i < tasks.size(); i++) {
 			tasks.get(i).move(status, i);
 		}
-	}
-
-	/**
-	 * タイトルをチェックし、前後の空白を取り除いたものを返す。カードの追加と更新で共通に使う。
-	 *
-	 * @param rawTitle 受け取ったタイトル（null のこともある）
-	 * @return 前後の空白を取り除いたタイトル
-	 * @throws ResponseStatusException 空・空白だけ・{@value #MAX_TITLE_LENGTH} 文字を超えるとき（400 Bad Request）
-	 */
-	private String validateTitle(String rawTitle) {
-		String title = rawTitle == null ? "" : rawTitle.trim();
-		if (title.isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "タイトルを入力してください");
-		}
-		// codePointCount：文字数を数える。length() だと絵文字などが2文字と数えられるため
-		if (title.codePointCount(0, title.length()) > MAX_TITLE_LENGTH) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"タイトルは" + MAX_TITLE_LENGTH + "文字までです");
-		}
-		return title;
 	}
 }

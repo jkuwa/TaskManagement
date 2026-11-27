@@ -66,6 +66,16 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onClose }: Pr
     if (dialog && !dialog.open) dialog.showModal()
   }, [])
 
+  // 詳細画面が消えるとき（アンマウント）に、保存待ちのタイマーを解除する。
+  // useEffect が返す関数（クリーンアップ）は、部品が画面から消えるときに呼ばれる。
+  // 解除しないと、消えたあとにタイマーが動いて保存が送られてしまう
+  // （［閉じる］や［削除］では先に flush でタイマーを止めているので、それ以外の消え方への備え）
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current)
+    }
+  }, [])
+
   /** 保存待ちの内容があれば、順番待ちの最後に保存を足す */
   function flush() {
     if (timerRef.current !== null) {
