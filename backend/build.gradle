@@ -61,7 +61,7 @@ tasks.named('test') {
 }
 
 // ./gradlew bootRun で起動するときは、開発用の設定（application-dev.properties）も読み込む
-// （SQL をログに出す、すでにある開発用 DB を Flyway の管理に切り替える、など）
+// （Hibernate が実行した SQL をログに出す）
 tasks.named('bootRun') {
 	systemProperty 'spring.profiles.active', 'dev'
 }
