@@ -136,3 +136,11 @@ export function updateSubtask(taskId: number, id: number, fields: SubtaskFields)
     'サブタスクの更新に失敗しました',
   )
 }
+
+/**
+ * サブタスクを削除する（DELETE /api/tasks/{taskId}/subtasks/{id}）。詳細画面の［×］で使う（F-23）。
+ * 成功すると 204 No Content（本文なし）が返る。
+ */
+export function deleteSubtask(taskId: number, id: number): Promise<void> {
+  return request<void>(`/api/tasks/${taskId}/subtasks/${id}`, { method: 'DELETE' }, 'サブタスクの削除に失敗しました')
+}

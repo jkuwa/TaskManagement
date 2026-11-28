@@ -29,6 +29,7 @@ describe('TaskDetail', () => {
       onDelete: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
       onAddSubtask: vi.fn<(title: string) => Promise<void>>().mockResolvedValue(undefined),
       onUpdateSubtask: vi.fn<(id: number, fields: SubtaskFields) => Promise<void>>().mockResolvedValue(undefined),
+      onDeleteSubtask: vi.fn<(id: number) => Promise<void>>().mockResolvedValue(undefined),
       onClose: vi.fn<() => void>(),
     }
     // advanceTimers：userEvent が操作の合間に待つときも、偽物のタイマーを進める
@@ -239,5 +240,28 @@ describe('TaskDetail', () => {
     await user.type(screen.getByRole('textbox', { name: 'サブタスクの内容を編集' }), '{Enter}')
 
     expect(onUpdateSubtask).not.toHaveBeenCalled()
+  })
+
+  test('［×］を押すと、確認せずにそのサブタスクを削除する', async () => {
+    const confirm = vi.spyOn(window, 'confirm')
+    const { user, onDeleteSubtask } = renderWithSubtasks()
+
+    await user.click(screen.getByRole('button', { name: '下書きを書くを削除' }))
+
+    expect(onDeleteSubtask).toHaveBeenCalledTimes(1)
+    expect(onDeleteSubtask).toHaveBeenCalledWith(2)
+    expect(confirm).not.toHaveBeenCalled()
+  })
+
+  test('書き換え中に［×］を押すと、書き換えた内容を保存してから削除する', async () => {
+    const { user, onUpdateSubtask, onDeleteSubtask } = renderWithSubtasks()
+
+    await user.click(screen.getByRole('button', { name: '下書きを書く' }))
+    await user.type(screen.getByRole('textbox', { name: 'サブタスクの内容を編集' }), 'き直す')
+    await user.click(screen.getByRole('button', { name: '下書きを書くを削除' }))
+
+    expect(onUpdateSubtask).toHaveBeenCalledWith(2, { title: '下書きを書くき直す', done: false })
+    expect(onDeleteSubtask).toHaveBeenCalledWith(2)
+    expect(onUpdateSubtask.mock.invocationCallOrder[0]).toBeLessThan(onDeleteSubtask.mock.invocationCallOrder[0])
   })
 })
