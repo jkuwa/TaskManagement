@@ -141,6 +141,20 @@ class SubtaskControllerTests {
 			.andExpect(jsonPath("$.title").value(title));
 	}
 
+	/**
+	 * 絵文字は1つで2文字と数える（カードのタイトルと同じ。フロントエンドの maxLength と同じ数え方）。
+	 * 50個（100文字）は追加できて、51個（102文字）は 400 Bad Request になることを確かめる。
+	 */
+	@Test
+	void createCountsEmojiAsTwoCharacters() throws Exception {
+		postSubtask(1, "{\"title\":\"" + "😀".repeat(50) + "\"}")
+			.andExpect(status().isCreated());
+		postSubtask(1, "{\"title\":\"" + "😀".repeat(51) + "\"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.detail").value("サブタスクの内容は100文字までです"));
+		assertThat(countSubtasks()).isEqualTo(2);
+	}
+
 	/** 正しくない入力のときは 400 Bad Request が返り、サブタスクが作られないことを確かめる */
 	@ParameterizedTest
 	@ValueSource(strings = {
@@ -235,6 +249,20 @@ class SubtaskControllerTests {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.errors.done").value("完了したかを指定してください"));
 		assertThat(subtaskTitle()).isEqualTo("最初のサブタスク");
+	}
+
+	/** 書き換えでも、絵文字は1つで2文字と数えることを確かめる（50個は更新でき、51個は 400 Bad Request） */
+	@Test
+	void updateCountsEmojiAsTwoCharacters() throws Exception {
+		putSubtask(1, 1, "{\"title\":\"" + "😀".repeat(51) + "\",\"done\":true}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.detail").value("サブタスクの内容は100文字までです"));
+		assertThat(subtaskTitle()).isEqualTo("最初のサブタスク");
+
+		String title = "😀".repeat(50);
+		putSubtask(1, 1, "{\"title\":\"" + title + "\",\"done\":true}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.title").value(title));
 	}
 
 	/** 101文字の内容は 400 Bad Request になることを確かめる */

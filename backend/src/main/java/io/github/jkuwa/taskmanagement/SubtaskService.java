@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
  * サブタスクに関する処理をまとめるクラス（Service 層）。
  *
  * <p>サブタスクは必ずどれかのカードに属するので、親のカードがあるかを確かめてから処理する。
- * カードを探す処理（見つからなければ TaskNotFoundException）は TaskService のものを使う。
+ * カードを探す処理・あるかを確かめる処理（見つからなければ TaskNotFoundException）は TaskService のものを使う。
  */
 @Service
 @Transactional(readOnly = true)
@@ -60,7 +60,7 @@ public class SubtaskService {
 	@Transactional
 	public Subtask update(Integer taskId, Integer id, UpdateSubtaskRequest request) {
 		// カードがないときは、サブタスクではなくカードが見つからないことを伝える
-		taskService.findById(taskId);
+		taskService.checkExists(taskId);
 		Subtask subtask = subtaskRepository.findByIdAndTaskId(id, taskId)
 				.orElseThrow(() -> new SubtaskNotFoundException(id));
 		subtask.update(request.title().strip(), request.done());
@@ -81,7 +81,7 @@ public class SubtaskService {
 	@Transactional
 	public void delete(Integer taskId, Integer id) {
 		// カードがないときは、サブタスクではなくカードが見つからないことを伝える（更新と同じ）
-		taskService.findById(taskId);
+		taskService.checkExists(taskId);
 		Subtask subtask = subtaskRepository.findByIdAndTaskId(id, taskId)
 				.orElseThrow(() -> new SubtaskNotFoundException(id));
 		subtaskRepository.delete(subtask);

@@ -71,6 +71,21 @@ public class TaskService {
 	}
 
 	/**
+	 * 指定した id のカードがあるかを確かめる。なければ TaskNotFoundException を投げる。
+	 *
+	 * <p>カードの中身は使わず、あるかどうかだけを知りたいときに使う（サブタスクの更新・削除など）。
+	 * findById はサブタスクもまとめて読み込むが、existsById は「あるかどうか」を調べる SQL だけを実行する。
+	 *
+	 * @param id 確かめたいカードの id
+	 * @throws TaskNotFoundException 見つからなかったとき
+	 */
+	public void checkExists(Integer id) {
+		if (!taskRepository.existsById(id)) {
+			throw new TaskNotFoundException(id);
+		}
+	}
+
+	/**
 	 * カードを指定した列の一番下に追加する。
 	 *
 	 * <p>入力のチェック（空のタイトル、100文字を超えるタイトル、status がない）は
