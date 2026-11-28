@@ -325,11 +325,13 @@ body {
   font-size: 14px;
 }
 
-/* .field input の余白と枠は文字の入力欄向けなので、チェックボックスでは外す */
+/* .field input の余白と枠は文字の入力欄向けなので、チェックボックスでは外す。
+   押せることが分かるよう、ボタンと同じくポインターにする */
 .subtask input[type='checkbox'] {
   flex-shrink: 0;
   margin: 0;
   padding: 0;
+  cursor: pointer;
 }
 
 /* 内容は押すと編集になるボタン。ボタンの見た目（枠・背景）を消して、文字だけに見せる */
