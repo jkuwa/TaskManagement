@@ -66,4 +66,25 @@ public class SubtaskService {
 		subtask.update(request.title().strip(), request.done());
 		return subtask;
 	}
+
+	/**
+	 * サブタスクを削除する（docs/spec.md の F-23）。
+	 *
+	 * <p>DB の行を消す物理削除にする（カードの削除と同じ）。
+	 * サブタスクには並び順の列（position）がなく、追加した順（id の順）に並ぶので、削除したあとに詰め直す必要はない。
+	 *
+	 * @param taskId 親のカードの id
+	 * @param id     サブタスクの id
+	 * @throws TaskNotFoundException    カードが見つからないとき
+	 * @throws SubtaskNotFoundException サブタスクが見つからない、または指定したカードのものでないとき
+	 */
+	@Transactional
+	public void delete(Integer taskId, Integer id) {
+		// カードがないときは、サブタスクではなくカードが見つからないことを伝える（更新と同じ）
+		taskService.findById(taskId);
+		Subtask subtask = subtaskRepository.findByIdAndTaskId(id, taskId)
+				.orElseThrow(() -> new SubtaskNotFoundException(id));
+		subtaskRepository.delete(subtask);
+	}
+	// JPA が自動で DELETE 実行
 }

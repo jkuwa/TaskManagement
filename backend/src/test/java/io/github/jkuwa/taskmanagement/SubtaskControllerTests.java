@@ -1,6 +1,7 @@
 package io.github.jkuwa.taskmanagement;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -275,5 +276,57 @@ class SubtaskControllerTests {
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.detail").value("サブタスクが見つかりません（id：1）"));
 		assertThat(subtaskTitle()).isEqualTo("最初のサブタスク");
+	}
+
+	/** DELETE /api/tasks/{taskId}/subtasks/{id} を送る */
+	private ResultActions deleteSubtask(int taskId, int id) throws Exception {
+		return mockMvc.perform(delete("/api/tasks/" + taskId + "/subtasks/" + id));
+	}
+
+	/**
+	 * サブタスクを削除すると 204 No Content が返り、DB から消えることを確かめる（F-23）。
+	 * 同じカードのほかのサブタスクは残る。
+	 */
+	@Test
+	void deleteRemovesSubtask() throws Exception {
+		jdbcTemplate.update("INSERT INTO subtasks (task_id, title) VALUES (1, '残るサブタスク')");
+
+		deleteSubtask(1, 1)
+			.andExpect(status().isNoContent())
+			.andExpect(content().string(""));
+
+		entityManager.flush();
+		entityManager.clear();
+		mockMvc.perform(get("/api/tasks/1"))
+			.andExpect(jsonPath("$.subtasks.length()").value(1))
+			.andExpect(jsonPath("$.subtasks[0].title").value("残るサブタスク"));
+	}
+
+	/** 存在しないカードを指定すると 404 Not Found が返り、サブタスクが消えないことを確かめる */
+	@Test
+	void deleteReturns404WhenTaskNotFound() throws Exception {
+		deleteSubtask(9999, 1)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.detail").value("カードが見つかりません（id：9999）"));
+		assertThat(countSubtasks()).isEqualTo(1);
+	}
+
+	/** 存在しないサブタスクを指定すると 404 Not Found が返ることを確かめる */
+	@Test
+	void deleteReturns404WhenSubtaskNotFound() throws Exception {
+		deleteSubtask(1, 9999)
+			.andExpect(status().isNotFound())
+			.andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.detail").value("サブタスクが見つかりません（id：9999）"));
+		assertThat(countSubtasks()).isEqualTo(1);
+	}
+
+	/** 別のカードのサブタスクを指定すると 404 Not Found が返り、サブタスクが消えないことを確かめる */
+	@Test
+	void deleteReturns404WhenSubtaskBelongsToAnotherTask() throws Exception {
+		deleteSubtask(2, 1)
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.detail").value("サブタスクが見つかりません（id：1）"));
+		assertThat(countSubtasks()).isEqualTo(1);
 	}
 }

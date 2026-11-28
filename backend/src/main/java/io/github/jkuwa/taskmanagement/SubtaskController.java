@@ -1,6 +1,7 @@
 package io.github.jkuwa.taskmanagement;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -17,6 +18,7 @@ import jakarta.validation.Valid;
  * <ul>
  *   <li>POST /api/tasks/{taskId}/subtasks：カードにサブタスクを追加する</li>
  *   <li>PUT /api/tasks/{taskId}/subtasks/{id}：サブタスクの内容と完了したかを更新する</li>
+ *   <li>DELETE /api/tasks/{taskId}/subtasks/{id}：サブタスクを削除する</li>
  * </ul>
  *
  * <p>サブタスクは必ずどれかのカードに属するので、URL もカードの下（/api/tasks/{taskId}/…）に置く。
@@ -70,5 +72,20 @@ public class SubtaskController {
 	public SubtaskResponse update(@PathVariable Integer taskId, @PathVariable Integer id,
 			@Valid @RequestBody UpdateSubtaskRequest request) {
 		return SubtaskResponse.from(subtaskService.update(taskId, id, request));
+	}
+
+	/**
+	 * DELETE /api/tasks/{taskId}/subtasks/{id} にアクセスされたときに呼ばれる。
+	 * 詳細画面でサブタスクの［×］を押したときに使う（F-23）。
+	 * 成功したら 204 No Content（本文なし）を返す（カードの削除と同じ）。
+	 * カードかサブタスクが見つからないときは 404 Not Found が返る。
+	 *
+	 * @param taskId 親のカードの id（URL の {taskId} の部分）
+	 * @param id     削除するサブタスクの id（URL の {id} の部分）
+	 */
+	@DeleteMapping("/{id}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void delete(@PathVariable Integer taskId, @PathVariable Integer id) {
+		subtaskService.delete(taskId, id);
 	}
 }
