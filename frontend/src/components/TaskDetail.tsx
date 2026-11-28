@@ -21,6 +21,8 @@ type Props = {
   onAddSubtask: (title: string) => Promise<void>
   /** サブタスクの内容と完了したかを保存する処理（Board から渡される）。失敗しても例外は投げない */
   onUpdateSubtask: (id: number, fields: SubtaskFields) => Promise<void>
+  /** サブタスクを削除する処理（Board から渡される）。失敗しても例外は投げない */
+  onDeleteSubtask: (id: number) => Promise<void>
   /** 詳細画面を閉じる処理（Board から渡される） */
   onClose: () => void
 }
@@ -43,11 +45,12 @@ type FormValues = {
  * - ［閉じる］ボタン・Esc キー・外側のクリックで閉じる
  * - ［削除］ボタンで、確認してからカードを削除する（F-18）
  * - サブタスクの一覧を表示し、［＋ サブタスクを追加］で追加できる（F-21）。
- *   チェックで完了・未完了を切り替え（F-22）、内容を押すと書き換えられる（F-26。SubtaskItem）。
+ *   チェックで完了・未完了を切り替え（F-22）、内容を押すと書き換えられる（F-26）、
+ *   ［×］で確認せずに削除できる（F-23。SubtaskItem）。
  *   サブタスクは入力欄の値（values）には持たず、Board から渡される task.subtasks をそのまま表示する
- *   （追加・更新すると useTasks が一覧を更新し、新しい task が渡されてくる）
+ *   （追加・更新・削除すると useTasks が一覧を更新し、新しい task が渡されてくる）
  */
-export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask, onUpdateSubtask, onClose }: Props) {
+export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask, onUpdateSubtask, onDeleteSubtask, onClose }: Props) {
   const [values, setValues] = useState<FormValues>({
     title: task.title,
     description: task.description ?? '', // ??：左が null か undefined なら右の値を使う
@@ -243,7 +246,11 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask,
             <ul className="subtask-list">
               {task.subtasks.map((subtask) => (
                 <li key={subtask.id}>
-                  <SubtaskItem subtask={subtask} onUpdate={(fields) => onUpdateSubtask(subtask.id, fields)} />
+                  <SubtaskItem
+                    subtask={subtask}
+                    onUpdate={(fields) => onUpdateSubtask(subtask.id, fields)}
+                    onDelete={() => onDeleteSubtask(subtask.id)}
+                  />
                 </li>
               ))}
             </ul>

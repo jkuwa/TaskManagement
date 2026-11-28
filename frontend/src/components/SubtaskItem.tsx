@@ -11,6 +11,11 @@ type Props = {
    * 画面の一覧はすぐに書き換わり、新しい subtask が渡されてくる
    */
   onUpdate: (fields: SubtaskFields) => Promise<void>
+  /**
+   * サブタスクを削除する処理（TaskDetail から渡される）。失敗しても例外は投げない。
+   * 削除できたら一覧から消え、この部品も画面から消える
+   */
+  onDelete: () => Promise<void>
 }
 
 /**
@@ -21,8 +26,10 @@ type Props = {
  *   - Enter か、入力欄の外をクリックしたら確定して保存する
  *   - Esc で変更を取り消す。詳細画面は閉じない（もう一度 Esc を押すと詳細画面が閉じる）
  *   - 空白だけ・空のときや、変えていないときは保存しない（元の内容のまま）
+ * - ［×］を押すと、確認せずにすぐ削除する（F-23）。書き換え中に押したときは、
+ *   入力欄の外をクリックしたことになるので、先に書き換えた内容を保存してから削除する（useTasks の順番待ち）
  */
-export function SubtaskItem({ subtask, onUpdate }: Props) {
+export function SubtaskItem({ subtask, onUpdate, onDelete }: Props) {
   const [isEditing, setIsEditing] = useState(false)
   // 編集中の入力欄の値
   const [draft, setDraft] = useState('')
@@ -97,6 +104,14 @@ export function SubtaskItem({ subtask, onUpdate }: Props) {
           {subtask.title}
         </button>
       )}
+      <button
+        type="button"
+        className="subtask-delete"
+        onClick={() => void onDelete()}
+        aria-label={`${subtask.title}を削除`}
+      >
+        ×
+      </button>
     </div>
   )
 }

@@ -223,4 +223,65 @@ describe('useTasks', () => {
     expect(api.updateSubtask).toHaveBeenCalledTimes(2)
     expect(subtasksOf(result.current.state, 1)).toEqual([{ id: 10, title: '下書きを書く', done: false }])
   })
+
+  test('サブタスクを削除できたら、一覧から取り除く', async () => {
+    vi.mocked(api.fetchTasks).mockResolvedValue([
+      makeTask(1, 'todo', {
+        subtasks: [
+          { id: 10, title: '下書きを書く', done: false },
+          { id: 11, title: '清書する', done: false },
+        ],
+      }),
+    ])
+    const { result } = await renderLoaded()
+    vi.mocked(api.deleteSubtask).mockResolvedValue(undefined)
+
+    await act(() => result.current.deleteSubtask(1, 10))
+
+    expect(api.deleteSubtask).toHaveBeenCalledWith(1, 10)
+    expect(subtasksOf(result.current.state, 1)).toEqual([{ id: 11, title: '清書する', done: false }])
+    expect(result.current.hasSaveError).toBe(false)
+  })
+
+  test('サブタスクの削除に失敗したら、一覧に残したまま hasSaveError を true にする', async () => {
+    vi.mocked(api.fetchTasks).mockResolvedValue([
+      makeTask(1, 'todo', { subtasks: [{ id: 10, title: '下書きを書く', done: false }] }),
+    ])
+    const { result } = await renderLoaded()
+    vi.mocked(api.deleteSubtask).mockRejectedValue(new Error('失敗'))
+
+    await act(() => result.current.deleteSubtask(1, 10))
+
+    expect(subtasksOf(result.current.state, 1)).toEqual([{ id: 10, title: '下書きを書く', done: false }])
+    expect(result.current.hasSaveError).toBe(true)
+  })
+
+  test('サブタスクの削除は、前の更新の保存が終わってから送る', async () => {
+    vi.mocked(api.fetchTasks).mockResolvedValue([
+      makeTask(1, 'todo', { subtasks: [{ id: 10, title: '下書きを書く', done: false }] }),
+    ])
+    const { result } = await renderLoaded()
+    let resolveUpdate: () => void = () => {}
+    vi.mocked(api.updateSubtask).mockReturnValue(
+      new Promise((resolve) => (resolveUpdate = () => resolve({ id: 10, title: '下書きを書く', done: true }))),
+    )
+    vi.mocked(api.deleteSubtask).mockResolvedValue(undefined)
+
+    let deleting: Promise<void> = Promise.resolve()
+    act(() => {
+      void result.current.updateSubtask(1, 10, { title: '下書きを書く', done: true })
+      deleting = result.current.deleteSubtask(1, 10)
+    })
+    // 更新の保存が終わるまで、削除は送らない
+    await act(async () => {})
+    expect(api.deleteSubtask).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveUpdate()
+      await deleting
+    })
+    expect(api.deleteSubtask).toHaveBeenCalledWith(1, 10)
+    expect(subtasksOf(result.current.state, 1)).toEqual([])
+    expect(result.current.hasSaveError).toBe(false)
+  })
 })

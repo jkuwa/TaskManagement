@@ -24,7 +24,7 @@ function updateTasks(prev: LoadState, update: (tasks: Task[]) => Task[]): LoadSt
 }
 
 /**
- * カードの一覧を読み込み、追加・更新・移動・削除する処理と、サブタスクを追加・更新する処理をまとめたカスタムフック。
+ * カードの一覧を読み込み、追加・更新・移動・削除する処理と、サブタスクを追加・更新・削除する処理をまとめたカスタムフック。
  *
  * カスタムフック：use で始まる名前の関数の中で useState などのフックを使い、状態とその操作をまとめたもの。
  * Board（画面）からカードのデータの扱いを切り離し、Board は表示とドラッグ&ドロップに集中できるようにする。
@@ -192,5 +192,34 @@ export function useTasks() {
     return saving
   }
 
-  return { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask, updateSubtask }
+  /**
+   * サブタスクを削除する（F-23）。確認はしない（［×］を押したらすぐ削除する）。
+   *
+   * - 削除できてから一覧から取り除く（カードの削除と同じ）。先に取り除くと、失敗したときに
+   *   画面では消えたのに DB には残ってしまうため
+   * - 失敗したときは一覧はそのまま（サブタスクは残る）にして、「保存できませんでした」を出す（hasSaveError）。例外は投げない
+   * - 更新と同じ順番待ち（subtaskQueueRef）に入れる。チェックや書き換えの保存が終わる前に削除すると、
+   *   削除したあとに更新が届いて「見つからない」エラーになるため
+   */
+  function deleteSubtask(taskId: number, id: number): Promise<void> {
+    const deleting = subtaskQueueRef.current.then(async () => {
+      try {
+        await api.deleteSubtask(taskId, id)
+        setState((prev) =>
+          updateTasks(prev, (tasks) =>
+            tasks.map((task) =>
+              task.id === taskId ? { ...task, subtasks: task.subtasks.filter((subtask) => subtask.id !== id) } : task,
+            ),
+          ),
+        )
+        setHasSaveError(false)
+      } catch {
+        setHasSaveError(true)
+      }
+    })
+    subtaskQueueRef.current = deleting
+    return deleting
+  }
+
+  return { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask, updateSubtask, deleteSubtask }
 }

@@ -51,7 +51,7 @@ function getDropTarget(event: DragMoveEvent | DragEndEvent): DropTarget | null {
  * この部品は表示と、詳細画面の開け閉め、ドラッグ&ドロップの操作だけを受け持つ。
  */
 export function Board() {
-  const { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask, updateSubtask } = useTasks()
+  const { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask, updateSubtask, deleteSubtask } = useTasks()
   // 詳細画面を開いているカードの id。閉じているときは null
   const [openId, setOpenId] = useState<number | null>(null)
   // ドラッグしているカードの id。ドラッグしていないときは null
@@ -166,6 +166,7 @@ export function Board() {
           onDelete={() => handleDelete(openTask.id)}
           onAddSubtask={(title) => addSubtask(openTask.id, title)}
           onUpdateSubtask={(id, fields) => updateSubtask(openTask.id, id, fields)}
+          onDeleteSubtask={(id) => deleteSubtask(openTask.id, id)}
           onClose={() => setOpenId(null)}
         />
       )}

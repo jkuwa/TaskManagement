@@ -365,6 +365,25 @@ body {
   font-size: 14px;
 }
 
+/* サブタスクを削除する［×］。内容（.subtask-title）が flex: 1 で広がるので、行の右端に並ぶ。
+   ボタンの枠・背景は消して、小さな灰色の × だけに見せる */
+.subtask-delete {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: #9ca3af;
+  font-size: 16px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.subtask-delete:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
 /* 完了したサブタスクは打ち消し線を引いて薄くする */
 .subtask-title.is-done {
   color: #6b7280;
