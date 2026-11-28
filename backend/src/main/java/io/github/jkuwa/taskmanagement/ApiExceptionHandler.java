@@ -49,6 +49,17 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 	}
 
 	/**
+	 * サブタスクが見つからなかったとき（SubtaskNotFoundException）は 404 Not Found を返す。
+	 *
+	 * @param ex 投げられた例外
+	 * @return エラーの内容
+	 */
+	@ExceptionHandler(SubtaskNotFoundException.class)
+	public ProblemDetail handleSubtaskNotFound(SubtaskNotFoundException ex) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+	}
+
+	/**
 	 * 移動先の位置が正しくなかったとき（InvalidTaskPositionException）は 400 Bad Request を返す。
 	 *
 	 * @param ex 投げられた例外

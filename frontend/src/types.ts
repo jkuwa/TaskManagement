@@ -42,3 +42,6 @@ export type Task = {
  * Pick<型, 'キー' | …>：型の中から指定した項目だけを取り出した型を作る
  */
 export type TaskFields = Pick<Task, 'title' | 'description' | 'dueDate' | 'priority'>
+
+/** サブタスクで書き換えられる項目。PUT /api/tasks/{taskId}/subtasks/{id} で送る内容 */
+export type SubtaskFields = Pick<Subtask, 'title' | 'done'>

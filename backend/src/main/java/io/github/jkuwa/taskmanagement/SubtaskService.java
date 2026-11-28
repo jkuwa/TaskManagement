@@ -43,4 +43,27 @@ public class SubtaskService {
 		Task task = taskService.findById(taskId);
 		return subtaskRepository.save(new Subtask(task, request.title().strip()));
 	}
+
+	/**
+	 * サブタスクの内容と完了したかを書き換える（docs/spec.md の F-22, F-26）。
+	 *
+	 * <p>入力のチェック（空の内容、100文字を超える内容、done がない）は UpdateSubtaskRequest で済んでいる。
+	 * ここでは内容の前後の空白を取り除いて保存する（追加のときと同じ）。
+	 *
+	 * @param taskId  親のカードの id
+	 * @param id      サブタスクの id
+	 * @param request 更新する内容
+	 * @return 更新したサブタスク
+	 * @throws TaskNotFoundException    カードが見つからないとき
+	 * @throws SubtaskNotFoundException サブタスクが見つからない、または指定したカードのものでないとき
+	 */
+	@Transactional
+	public Subtask update(Integer taskId, Integer id, UpdateSubtaskRequest request) {
+		// カードがないときは、サブタスクではなくカードが見つからないことを伝える
+		taskService.findById(taskId);
+		Subtask subtask = subtaskRepository.findByIdAndTaskId(id, taskId)
+				.orElseThrow(() -> new SubtaskNotFoundException(id));
+		subtask.update(request.title().strip(), request.done());
+		return subtask;
+	}
 }

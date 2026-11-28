@@ -152,4 +152,75 @@ describe('useTasks', () => {
     expect(task?.title).toBe('新しいタイトル')
     expect(task?.subtasks.map((s) => s.title)).toEqual(['サブタスク'])
   })
+
+  /** 今の state から、指定したカードのサブタスクを取り出す */
+  function subtasksOf(state: ReturnType<typeof useTasks>['state'], taskId: number) {
+    if (state.kind !== 'success') throw new Error('読み込めていない')
+    return state.tasks.find((t) => t.id === taskId)?.subtasks
+  }
+
+  test('サブタスクを更新すると、保存の結果を待たずに一覧を書き換える', async () => {
+    vi.mocked(api.fetchTasks).mockResolvedValue([
+      makeTask(1, 'todo', { subtasks: [{ id: 10, title: '下書きを書く', done: false }] }),
+    ])
+    const { result } = await renderLoaded()
+    // 保存の結果がなかなか届かないようにする
+    let resolveUpdate: () => void = () => {}
+    vi.mocked(api.updateSubtask).mockReturnValue(
+      new Promise((resolve) => (resolveUpdate = () => resolve({ id: 10, title: '清書する', done: true }))),
+    )
+
+    let saving: Promise<void> = Promise.resolve()
+    act(() => {
+      saving = result.current.updateSubtask(1, 10, { title: '清書する', done: true })
+    })
+    expect(subtasksOf(result.current.state, 1)).toEqual([{ id: 10, title: '清書する', done: true }])
+
+    await act(async () => {
+      resolveUpdate()
+      await saving
+    })
+    expect(api.updateSubtask).toHaveBeenCalledWith(1, 10, { title: '清書する', done: true })
+    expect(result.current.hasSaveError).toBe(false)
+  })
+
+  test('サブタスクの更新に失敗しても一覧はそのままにして、hasSaveError を true にする', async () => {
+    vi.mocked(api.fetchTasks).mockResolvedValue([
+      makeTask(1, 'todo', { subtasks: [{ id: 10, title: '下書きを書く', done: false }] }),
+    ])
+    const { result } = await renderLoaded()
+    vi.mocked(api.updateSubtask).mockRejectedValue(new Error('失敗'))
+
+    await act(() => result.current.updateSubtask(1, 10, { title: '下書きを書く', done: true }))
+
+    expect(subtasksOf(result.current.state, 1)).toEqual([{ id: 10, title: '下書きを書く', done: true }])
+    expect(result.current.hasSaveError).toBe(true)
+  })
+
+  test('サブタスクの保存は、前の保存が終わってから次を送る', async () => {
+    vi.mocked(api.fetchTasks).mockResolvedValue([
+      makeTask(1, 'todo', { subtasks: [{ id: 10, title: '下書きを書く', done: false }] }),
+    ])
+    const { result } = await renderLoaded()
+    let resolveFirst: () => void = () => {}
+    vi.mocked(api.updateSubtask)
+      .mockReturnValueOnce(new Promise((resolve) => (resolveFirst = () => resolve({ id: 10, title: '下書きを書く', done: true }))))
+      .mockResolvedValueOnce({ id: 10, title: '下書きを書く', done: false })
+
+    let second: Promise<void> = Promise.resolve()
+    act(() => {
+      void result.current.updateSubtask(1, 10, { title: '下書きを書く', done: true })
+      second = result.current.updateSubtask(1, 10, { title: '下書きを書く', done: false })
+    })
+    // 1つ目の保存が終わるまで、2つ目は送らない
+    await act(async () => {})
+    expect(api.updateSubtask).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      resolveFirst()
+      await second
+    })
+    expect(api.updateSubtask).toHaveBeenCalledTimes(2)
+    expect(subtasksOf(result.current.state, 1)).toEqual([{ id: 10, title: '下書きを書く', done: false }])
+  })
 })
