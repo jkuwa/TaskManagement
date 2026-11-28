@@ -3,6 +3,7 @@ package io.github.jkuwa.taskmanagement;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -62,6 +63,18 @@ class SubtaskControllerTests {
 		return mockMvc.perform(post("/api/tasks/" + taskId + "/subtasks")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(json));
+	}
+
+	/** PUT /api/tasks/{taskId}/subtasks/{id} に JSON を送る */
+	private ResultActions putSubtask(int taskId, int id, String json) throws Exception {
+		return mockMvc.perform(put("/api/tasks/" + taskId + "/subtasks/" + id)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json));
+	}
+
+	/** サブタスク（id 1）の内容を DB から読む（更新されていないことを確かめるときに使う） */
+	private String subtaskTitle() {
+		return jdbcTemplate.queryForObject("SELECT title FROM subtasks WHERE id = 1", String.class);
 	}
 
 	/** subtasks テーブルの件数を数える（作られていないことを確かめるときに使う） */
@@ -161,5 +174,106 @@ class SubtaskControllerTests {
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.detail").value("カードが見つかりません（id：9999）"));
 		assertThat(countSubtasks()).isEqualTo(1);
+	}
+
+	/**
+	 * サブタスクの内容と完了したかを更新すると 200 OK が返り、DB にも保存されることを確かめる（F-22, F-26）。
+	 * 内容の前後の空白は取り除く。
+	 */
+	@Test
+	void updateChangesTitleAndDone() throws Exception {
+		putSubtask(1, 1, """
+				{"title":"  書き換えた内容  ","done":false}
+				""")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.id").value(1))
+			.andExpect(jsonPath("$.title").value("書き換えた内容"))
+			.andExpect(jsonPath("$.done").value(false));
+
+		entityManager.flush();
+		entityManager.clear();
+		mockMvc.perform(get("/api/tasks/1"))
+			.andExpect(jsonPath("$.subtasks.length()").value(1))
+			.andExpect(jsonPath("$.subtasks[0].title").value("書き換えた内容"))
+			.andExpect(jsonPath("$.subtasks[0].done").value(false));
+	}
+
+	/** 未完了のサブタスクを完了にできることを確かめる（F-22） */
+	@Test
+	void updateMarksSubtaskDone() throws Exception {
+		jdbcTemplate.update("UPDATE subtasks SET done = FALSE WHERE id = 1");
+
+		putSubtask(1, 1, """
+				{"title":"最初のサブタスク","done":true}
+				""")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.done").value(true));
+	}
+
+	/** 正しくない入力のときは 400 Bad Request が返り、サブタスクが変わらないことを確かめる */
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"{\"title\":\"\",\"done\":false}",     // 空の内容
+		"{\"title\":\"   \",\"done\":false}",  // 空白だけの内容
+		"{\"done\":false}",                   // 内容がない
+	})
+	void updateReturns400WhenTitleInvalid(String json) throws Exception {
+		putSubtask(1, 1, json)
+			.andExpect(status().isBadRequest())
+			.andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.errors.title").value("サブタスクの内容を入力してください"));
+		assertThat(subtaskTitle()).isEqualTo("最初のサブタスク");
+	}
+
+	/** done がないときは 400 Bad Request になることを確かめる */
+	@Test
+	void updateReturns400WhenDoneMissing() throws Exception {
+		putSubtask(1, 1, """
+				{"title":"書き換えた内容"}
+				""")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.done").value("完了したかを指定してください"));
+		assertThat(subtaskTitle()).isEqualTo("最初のサブタスク");
+	}
+
+	/** 101文字の内容は 400 Bad Request になることを確かめる */
+	@Test
+	void updateReturns400WhenTitleTooLong() throws Exception {
+		putSubtask(1, 1, "{\"title\":\"" + "あ".repeat(101) + "\",\"done\":true}")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.detail").value("サブタスクの内容は100文字までです"));
+		assertThat(subtaskTitle()).isEqualTo("最初のサブタスク");
+	}
+
+	/** 存在しないカードを指定すると 404 Not Found が返ることを確かめる */
+	@Test
+	void updateReturns404WhenTaskNotFound() throws Exception {
+		putSubtask(9999, 1, """
+				{"title":"書き換えた内容","done":true}
+				""")
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.detail").value("カードが見つかりません（id：9999）"));
+	}
+
+	/** 存在しないサブタスクを指定すると 404 Not Found が返ることを確かめる */
+	@Test
+	void updateReturns404WhenSubtaskNotFound() throws Exception {
+		putSubtask(1, 9999, """
+				{"title":"書き換えた内容","done":true}
+				""")
+			.andExpect(status().isNotFound())
+			.andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.detail").value("サブタスクが見つかりません（id：9999）"));
+	}
+
+	/** 別のカードのサブタスクを指定すると 404 Not Found が返り、サブタスクが変わらないことを確かめる */
+	@Test
+	void updateReturns404WhenSubtaskBelongsToAnotherTask() throws Exception {
+		putSubtask(2, 1, """
+				{"title":"書き換えた内容","done":false}
+				""")
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.detail").value("サブタスクが見つかりません（id：1）"));
+		assertThat(subtaskTitle()).isEqualTo("最初のサブタスク");
 	}
 }

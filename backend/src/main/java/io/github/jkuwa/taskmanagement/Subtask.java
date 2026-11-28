@@ -79,6 +79,18 @@ public class Subtask {
 		this.title = title;
 	}
 
+	/**
+	 * 内容と完了したかをまとめて書き換える。サブタスクを更新する API で使う。
+	 * Task.update と同じく、トランザクションの終わりに JPA が自動で UPDATE 文を実行する。
+	 *
+	 * @param title 内容
+	 * @param done  完了したか
+	 */
+	public void update(String title, boolean done) {
+		this.title = title;
+		this.done = done;
+	}
+
 	public Integer getId() {
 		return id;
 	}

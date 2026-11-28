@@ -4,7 +4,7 @@ package io.github.jkuwa.taskmanagement;
  * API がフロントエンドに返すサブタスクの中身（レスポンス用の DTO）。
  * 例：{"id":1,"title":"構成を考える","done":false}
  *
- * <p>カードの中（TaskResponse の subtasks）と、サブタスクを追加する API の結果の両方で使う。
+ * <p>カードの中（TaskResponse の subtasks）と、サブタスクを追加・更新する API の結果で使う。
  *
  * @param id    id
  * @param title 内容
