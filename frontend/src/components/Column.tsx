@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core'
 import type { ReactNode } from 'react'
 import type { Task, TaskStatus } from '../types'
-import { AddCardForm } from './AddCardForm'
+import { AddForm } from './AddForm'
 import { Card } from './Card'
 
 type Props = {
@@ -46,7 +46,7 @@ export function Column({ status, label, tasks, activeId, dropIndex, onAdd, onOpe
       <div className="card-list" data-status={status}>
         {items}
       </div>
-      <AddCardForm onAdd={onAdd} />
+      <AddForm buttonLabel="＋ カード追加" inputLabel="カードのタイトル" placeholder="タイトルを入力" onAdd={onAdd} />
     </section>
   )
 }

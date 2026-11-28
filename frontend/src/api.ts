@@ -1,4 +1,4 @@
-import type { Task, TaskFields, TaskStatus } from './types'
+import type { Subtask, Task, TaskFields, TaskStatus } from './types'
 
 /**
  * API がエラーを返したときに投げる例外。
@@ -110,4 +110,16 @@ export function moveTask(id: number, status: TaskStatus, index: number): Promise
  */
 export function deleteTask(id: number): Promise<void> {
   return request<void>(`/api/tasks/${id}`, { method: 'DELETE' }, 'カードの削除に失敗しました')
+}
+
+/**
+ * カードにサブタスクを追加する（POST /api/tasks/{taskId}/subtasks）。詳細画面で使う（F-21）。
+ * 作ったサブタスク（DB が振った id が入っている。最初は未完了）を返す。
+ */
+export function createSubtask(taskId: number, title: string): Promise<Subtask> {
+  return request<Subtask>(
+    `/api/tasks/${taskId}/subtasks`,
+    jsonBody('POST', { title }),
+    'サブタスクの追加に失敗しました',
+  )
 }

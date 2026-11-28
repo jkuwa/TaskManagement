@@ -4,12 +4,13 @@
 -- 使い方（リポジトリ直下で実行。先に ./gradlew bootRun を1回起動して tasks テーブルを作っておく）：
 --   docker compose exec -T db psql -U taskmanagement -d taskmanagement < backend/src/main/resources/db/sample-data.sql
 --
--- ※ 最初に tasks テーブルを空にしてから入れ直すので、何度流しても同じ状態になる。
---    手で追加したカードも消えるので注意。
+-- ※ 最初に tasks・subtasks テーブルを空にしてから入れ直すので、何度流しても同じ状態になる。
+--    手で追加したカード・サブタスクも消えるので注意。
 -- ※ Spring Boot はこのファイルを自動では実行しない（手で流したときだけ使われる）。
 
 -- テーブルを空にする。RESTART IDENTITY で id の番号も 1 から振り直す
-TRUNCATE TABLE tasks RESTART IDENTITY;
+-- （subtasks は tasks を外部キーで指しているので、tasks だけを空にすることはできない。2つ一緒に空にする）
+TRUNCATE TABLE subtasks, tasks RESTART IDENTITY;
 
 -- created_at / updated_at は DEFAULT（現在時刻）が入るので書かない
 INSERT INTO tasks (title, description, priority, due_date, status, position) VALUES
@@ -22,3 +23,13 @@ INSERT INTO tasks (title, description, priority, due_date, status, position) VAL
 	('テストを書く', NULL, 'low', '2026-12-01', 'in_progress', 1),
 	-- 完了（done）
 	('PostgreSQL の環境を作る', 'Docker Compose で起動できるようにした', 'medium', '2026-11-10', 'done', 0);
+
+-- サブタスク。task_id は上で入れたカードの id（1 から順に振られる）
+INSERT INTO subtasks (task_id, title, done) VALUES
+	-- 1：要件定義書を見直す
+	(1, '機能要件を読む', TRUE),
+	(1, '受け入れ基準と突き合わせる', FALSE),
+	(1, '直すところをまとめる', FALSE),
+	-- 4：タスクの読み取り API を作る
+	(4, 'GET /api/tasks を作る', TRUE),
+	(4, 'GET /api/tasks/{id} を作る', TRUE);

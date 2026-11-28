@@ -12,6 +12,7 @@ export function makeTask(id: number, status: TaskStatus = 'todo', overrides: Par
     position: 0,
     createdAt: '2026-11-20T01:00:00Z',
     updatedAt: '2026-11-20T01:00:00Z',
+    subtasks: [],
     ...overrides,
   }
 }

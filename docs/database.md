@@ -4,7 +4,6 @@ DB で管理するエンティティは「カード（タスク）」と「サ�
 
 - 列は「未着手」「進行中」「完了」の3つで固定する。どの列に入っているかは、カードの `status` で表す
 - 1つのカードは、複数のサブタスクを持つ（サブタスクがないカードもある）
-- サブタスクは任意の機能（F-21〜F-24）なので、まだ `subtasks` テーブルは作っていない。作るときにこの設計を使う
 
 ## ER図
 
@@ -43,7 +42,7 @@ erDiagram
 
 型は PostgreSQL の書き方で書いている。
 
-テーブルは、バックエンドを起動したときに Flyway が `backend/src/main/resources/db/migration` の SQL を順に実行して作る（マイグレーション）。テーブルを変えるときは、既存のファイルは書き換えず、新しいファイル（`V2__内容.sql` など）を足す。Hibernate はテーブルを作らず、Entity クラス（`Task.java`）とテーブルが合っているかを確かめるだけにしている（`spring.jpa.hibernate.ddl-auto=validate`）。
+テーブルは、バックエンドを起動したときに Flyway が `backend/src/main/resources/db/migration` の SQL を順に実行して作る（マイグレーション）。テーブルを変えるときは、既存のファイルは書き換えず、新しいファイル（`V2__内容.sql` など）を足す。Hibernate はテーブルを作らず、Entity クラス（`Task.java`・`Subtask.java`）とテーブルが合っているかを確かめるだけにしている（`spring.jpa.hibernate.ddl-auto=validate`）。
 
 `created_at` / `updated_at` は、アプリから保存・更新するときは Hibernate（`@CreationTimestamp` / `@UpdateTimestamp`）が現在時刻を入れる。PostgreSQL は行を更新しても `updated_at` を自動では変えないので、psql などで直接更新するときは SQL で現在時刻を入れる。
 
@@ -75,7 +74,7 @@ erDiagram
 
 ### subtasks（サブタスク）
 
-任意の機能のため未作成。
+`V2__create_subtasks.sql` で作る。
 
 | カラム名 | 型 | 必須 | デフォルト | 説明 |
 |---|---|---|---|---|
@@ -86,4 +85,6 @@ erDiagram
 | created_at | TIMESTAMPTZ | YES | CURRENT_TIMESTAMP | 作成日時 |
 | updated_at | TIMESTAMPTZ | YES | CURRENT_TIMESTAMP | 更新日時 |
 
-カードを削除したときは、そのカードのサブタスクもあわせて削除する（外部キーに `ON DELETE CASCADE` を付ける）。
+カードを削除したときは、そのカードのサブタスクもあわせて削除する（外部キーに `ON DELETE CASCADE` を付ける）。アプリから削除するときは、Hibernate も読み込んだサブタスクを削除する（`Task.java` の `subtasks` に付けた `cascade = CascadeType.REMOVE`）。
+
+サブタスクはカードごとに取り出すので、`task_id` に索引（`subtasks_task_id_idx`）を付けている。

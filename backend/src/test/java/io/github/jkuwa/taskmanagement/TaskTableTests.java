@@ -11,10 +11,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * tasks テーブルが Flyway のマイグレーション（src/main/resources/db/migration）で作られているかを確かめるテスト。
+ * tasks・subtasks テーブルが Flyway のマイグレーション（src/main/resources/db/migration）で作られているかを確かめるテスト。
  *
  * <p>テスト用の PostgreSQL は毎回空の状態で起動するので、db/migration の SQL が順に実行されてテーブルができる。
- * テーブルと Entity（Task クラス）の定義が合っていなければ、Hibernate の確認（ddl-auto=validate）で起動に失敗する。
+ * テーブルと Entity（Task・Subtask クラス）の定義が合っていなければ、Hibernate の確認（ddl-auto=validate）で起動に失敗する。
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class) // テスト用の PostgreSQL コンテナを自動で起動
@@ -78,6 +78,17 @@ class TaskTableTests {
 				"SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank",
 				String.class);
 
-		assertThat(versions).containsExactly("1");
+		assertThat(versions).containsExactly("1", "2");
+	}
+
+	/** subtasks テーブルに docs/database.md どおりの6つの列があることを確かめる */
+	@Test
+	void subtasksTableIsCreated() {
+		List<String> columns = jdbcTemplate.queryForList(
+				"SELECT column_name FROM information_schema.columns WHERE table_name = 'subtasks'",
+				String.class);
+
+		assertThat(columns).containsExactlyInAnyOrder(
+				"id", "task_id", "title", "done", "created_at", "updated_at");
 	}
 }

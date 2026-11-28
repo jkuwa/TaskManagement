@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import type { Priority, Task, TaskFields } from '../types'
 import { MAX_TITLE_LENGTH } from '../utils'
+import { AddForm } from './AddForm'
 
 /** 入力が止まってから保存するまでの時間（ミリ秒） */
 const SAVE_DELAY_MS = 500
@@ -15,6 +16,8 @@ type Props = {
   onSave: (fields: TaskFields) => Promise<void>
   /** カードを削除する処理（Board から渡される）。失敗しても例外は投げない */
   onDelete: () => Promise<void>
+  /** サブタスクを追加する処理（Board から渡される）。失敗したときは例外を投げる（AddForm が「保存できませんでした」を出す） */
+  onAddSubtask: (title: string) => Promise<void>
   /** 詳細画面を閉じる処理（Board から渡される） */
   onClose: () => void
 }
@@ -36,8 +39,11 @@ type FormValues = {
  * - タイトルが空のあいだは、タイトルだけ変更前の値で保存する。空のまま閉じたら変更前のタイトルに戻る
  * - ［閉じる］ボタン・Esc キー・外側のクリックで閉じる
  * - ［削除］ボタンで、確認してからカードを削除する（F-18）
+ * - サブタスクの一覧を表示し、［＋ サブタスクを追加］で追加できる（F-21）。
+ *   サブタスクは入力欄の値（values）には持たず、Board から渡される task.subtasks をそのまま表示する
+ *   （追加すると useTasks が一覧を更新し、新しい task が渡されてくる）
  */
-export function TaskDetail({ task, hasSaveError, onSave, onDelete, onClose }: Props) {
+export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask, onClose }: Props) {
   const [values, setValues] = useState<FormValues>({
     title: task.title,
     description: task.description ?? '', // ??：左が null か undefined なら右の値を使う
@@ -226,6 +232,29 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onClose }: Pr
             </select>
           </label>
         </div>
+        {/* fieldset：関係する入力欄をまとめる枠。legend がまとまりの名前になる */}
+        <fieldset className="field subtasks">
+          <legend className="field-label">サブタスク</legend>
+          {task.subtasks.length > 0 && (
+            <ul className="subtask-list">
+              {task.subtasks.map((subtask) => (
+                <li key={subtask.id}>
+                  <label className="subtask">
+                    {/* 完了・未完了の切り替え（F-22）はまだないので、今は表示だけにして押せなくしている */}
+                    <input type="checkbox" checked={subtask.done} disabled />
+                    <span className={subtask.done ? 'subtask-title is-done' : 'subtask-title'}>{subtask.title}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          <AddForm
+            buttonLabel="＋ サブタスクを追加"
+            inputLabel="サブタスクの内容"
+            placeholder="内容を入力"
+            onAdd={onAddSubtask}
+          />
+        </fieldset>
         {hasSaveError && <p className="form-error">保存できませんでした</p>}
         <div className="detail-actions">
           <button type="button" className="btn btn-danger" onClick={handleDelete}>

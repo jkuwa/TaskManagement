@@ -5,6 +5,17 @@ export type TaskStatus = 'todo' | 'in_progress' | 'done'
 export type Priority = 'high' | 'medium' | 'low'
 
 /**
+ * サブタスク。カードの subtasks に入る1件分と、POST /api/tasks/{taskId}/subtasks が返す JSON。
+ * 項目はバックエンドの SubtaskResponse.java と同じ。
+ */
+export type Subtask = {
+  id: number
+  title: string
+  /** 完了したか */
+  done: boolean
+}
+
+/**
  * カード（タスク）。GET /api/tasks が返す JSON の1件分。
  * 項目はバックエンドの TaskResponse.java（レスポンス用の DTO）と同じ。
  * 未設定のときに null になる項目は「| null」を付けている。
@@ -22,6 +33,8 @@ export type Task = {
   createdAt: string
   /** 更新日時。形は createdAt と同じ */
   updatedAt: string
+  /** サブタスク（追加した順）。1件もなければ [] */
+  subtasks: Subtask[]
 }
 
 /**

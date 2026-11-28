@@ -3,6 +3,7 @@ package io.github.jkuwa.taskmanagement;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -22,8 +23,29 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * </ul>
  *
  * <p>JpaRepository&lt;Task, Integer&gt; は「Task を扱い、主キー（id）の型は Integer」という意味。
+ *
+ * <p>API でカードを返すときに使うメソッドには {@code @EntityGraph(attributePaths = "subtasks")} を付け、
+ * カードと一緒にサブタスクも読み込む。
+ * <ul>
+ *   <li>Task の subtasks は LAZY（使うときに初めて読み込む）。ただし application.properties で
+ *       open-in-view=false にしているので、Controller で TaskResponse に詰め替えるときには
+ *       もう DB とのやり取りが閉じていて、あとから読み込めない（LazyInitializationException になる）</li>
+ *   <li>カードを1枚ずつ読んでからサブタスクを読むと、カードの枚数だけ SQL が増える（N+1 問題）。
+ *       EntityGraph を付けると、JOIN を使って1回の SQL でまとめて読み込む</li>
+ * </ul>
  */
 public interface TaskRepository extends JpaRepository<Task, Integer> {
+
+	/**
+	 * 指定した id のカードを、サブタスクと一緒に取得する。
+	 * JpaRepository が用意している findById を上書きして、{@code @EntityGraph} を付けている。
+	 *
+	 * @param id カードの id
+	 * @return 見つかったカード。なければ空の Optional
+	 */
+	@Override
+	@EntityGraph(attributePaths = "subtasks")
+	Optional<Task> findById(Integer id);
 
 	/**
 	 * すべてのカードを、列の中での並び順（position の小さい順）で取得する。
@@ -38,8 +60,11 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
 	 * </ul>
 	 * 実行される SQL のイメージ：SELECT * FROM tasks ORDER BY position ASC, id ASC
 	 *
+	 * サブタスクも一緒に読み込む（{@code @EntityGraph}）。
+	 *
 	 * @return カードのリスト。1件もなければ空のリスト
 	 */
+	@EntityGraph(attributePaths = "subtasks")
 	List<Task> findAllByOrderByPositionAscIdAsc();
 
 	/**
