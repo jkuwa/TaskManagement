@@ -151,6 +151,16 @@ body {
   color: #6b7280;
 }
 
+/* サブタスクの進み具合。全部完了したら緑にする（緑は .badge-low と同じ色） */
+.subtask-progress {
+  color: #6b7280;
+}
+
+.subtask-progress.is-complete {
+  color: #15803d;
+  font-weight: bold;
+}
+
 /* 説明文ありのアイコン */
 .desc-icon {
   margin-left: auto;
