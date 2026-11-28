@@ -22,15 +22,17 @@ describe('TaskDetail', () => {
 
   /**
    * 詳細画面を描画する。onSave などはテスト用の関数（vi.fn）にする。
-   * unsavedSubtaskIds：保存に失敗したままにしておくサブタスクの id
+   * - unsavedSubtaskIds：保存に失敗したままにしておくサブタスクの id
+   * - unsavedFields：保存できなかったカードの内容
    */
   function renderDetail(
     task = makeTask(1, 'todo', { title: '資料を作る', priority: 'high', dueDate: '2026-11-20' }),
-    unsavedSubtaskIds: number[] = [],
+    { unsavedSubtaskIds = [], unsavedFields }: { unsavedSubtaskIds?: number[]; unsavedFields?: TaskFields } = {},
   ) {
     const props = {
       task,
       hasSaveError: false,
+      unsavedFields,
       isSubtaskUnsaved: (id: number) => unsavedSubtaskIds.includes(id),
       onSave: vi.fn<(fields: TaskFields) => Promise<void>>().mockResolvedValue(undefined),
       onDelete: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -154,12 +156,32 @@ describe('TaskDetail', () => {
           { id: 2, title: '下書きを書く', done: false },
         ],
       }),
-      [1],
+      { unsavedSubtaskIds: [1] },
     )
 
     const items = screen.getAllByRole('listitem')
     expect(items[0]).toHaveTextContent('⚠未保存')
     expect(items[1]).not.toHaveTextContent('⚠未保存')
+  })
+
+  test('保存できなかった値があれば入力欄に出し、保存できていない項目にだけ赤い枠（is-unsaved）を付ける', () => {
+    renderDetail(undefined, {
+      unsavedFields: { title: '資料を作る', description: '保存できなかった説明', dueDate: '2026-11-20', priority: 'low' },
+    })
+
+    expect(screen.getByRole('textbox', { name: '説明文' })).toHaveValue('保存できなかった説明')
+    expect(screen.getByRole('textbox', { name: '説明文' })).toHaveClass('is-unsaved')
+    expect(screen.getByRole('combobox', { name: '優先度' })).toHaveValue('low')
+    expect(screen.getByRole('combobox', { name: '優先度' })).toHaveClass('is-unsaved')
+    // 変えていない項目には付けない
+    expect(screen.getByRole('textbox', { name: 'タイトル' })).not.toHaveClass('is-unsaved')
+    expect(screen.getByLabelText('期限')).not.toHaveClass('is-unsaved')
+  })
+
+  test('保存できなかった値がなければ、どの入力欄にも赤い枠を付けない', () => {
+    renderDetail()
+
+    expect(document.querySelector('.is-unsaved')).toBeNull()
   })
 
   test('サブタスクがないときは一覧を出さず、［＋ サブタスクを追加］だけを表示する', () => {

@@ -313,6 +313,13 @@ body {
   resize: vertical;
 }
 
+/* 保存できていない項目の入力欄。ボードのカードと同じ赤で枠を付ける。
+   枠の太さを変えると入力欄の大きさが変わるので、外側の影で線を太く見せる */
+.field .is-unsaved {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 1px #dc2626;
+}
+
 .field-row {
   display: flex;
   gap: 16px;

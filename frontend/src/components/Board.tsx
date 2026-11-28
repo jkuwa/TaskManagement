@@ -55,6 +55,8 @@ export function Board() {
     state,
     hasSaveError,
     hasUnsavedChanges,
+    hasSaveErrorFor,
+    getUnsavedFields,
     isSubtaskUnsaved,
     addTask,
     saveTask,
@@ -174,7 +176,9 @@ export function Board() {
           // key を変えると React は別の部品として作り直すので、別のカードを開くと入力欄が初期化される
           key={openTask.id}
           task={openTask}
-          hasSaveError={hasSaveError}
+          // 詳細画面には、開いたカードの失敗があるときだけ「保存できませんでした」を出す
+          hasSaveError={hasSaveErrorFor(openTask)}
+          unsavedFields={getUnsavedFields(openTask.id)}
           isSubtaskUnsaved={isSubtaskUnsaved}
           onSave={(fields) => saveTask(openTask.id, fields)}
           onDelete={() => handleDelete(openTask.id)}

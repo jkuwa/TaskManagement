@@ -396,6 +396,43 @@ describe('useTasks', () => {
       expect(result.current.isSubtaskUnsaved(10)).toBe(false)
     })
 
+    test('カードの内容の保存に失敗したら、保存できなかった値を覚え、一覧のカードは保存できた値のままにする', async () => {
+      const { result } = await renderLoaded()
+      const fields = { title: '新しいタイトル', description: '説明', dueDate: null, priority: null }
+      vi.mocked(api.updateTask)
+        .mockRejectedValueOnce(new Error('失敗'))
+        .mockResolvedValueOnce(makeTask(1, 'todo', { title: '新しいタイトル', description: '説明' }))
+
+      await act(() => result.current.saveTask(1, fields))
+      expect(result.current.getUnsavedFields(1)).toEqual(fields)
+      expect(result.current.getUnsavedFields(2)).toBeUndefined()
+      expect(taskOf(result.current.state, 1).title).toBe('カード1')
+
+      await act(() => result.current.saveTask(1, fields))
+      expect(result.current.getUnsavedFields(1)).toBeUndefined()
+    })
+
+    test('詳細画面に出す失敗（hasSaveErrorFor）は、そのカードの失敗だけにする', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.updateTask).mockRejectedValue(new Error('失敗'))
+
+      await act(() => result.current.saveTask(1, titleOnly))
+
+      expect(result.current.hasSaveErrorFor(taskOf(result.current.state, 1))).toBe(true)
+      expect(result.current.hasSaveErrorFor(taskOf(result.current.state, 2))).toBe(false)
+    })
+
+    test('サブタスクの削除の失敗は、そのサブタスクのカードの詳細画面にだけ出す', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.deleteSubtask).mockRejectedValue(new Error('失敗'))
+
+      await act(() => result.current.deleteSubtask(1, 10))
+
+      expect(result.current.hasSaveError).toBe(true)
+      expect(result.current.hasSaveErrorFor(taskOf(result.current.state, 1))).toBe(true)
+      expect(result.current.hasSaveErrorFor(taskOf(result.current.state, 2))).toBe(false)
+    })
+
     test('移動に失敗して読み直しにも失敗したときは、どのカードにも印を付けない（メッセージだけ出す）', async () => {
       const { result } = await renderLoaded()
       vi.mocked(api.moveTask).mockRejectedValue(new Error('失敗'))
