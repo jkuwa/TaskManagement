@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as api from '../api'
-import type { Task, TaskFields, TaskStatus } from '../types'
+import type { SubtaskFields, Task, TaskFields, TaskStatus } from '../types'
 import { groupByStatus, reorderTasks } from '../utils'
 
 /**
@@ -24,7 +24,7 @@ function updateTasks(prev: LoadState, update: (tasks: Task[]) => Task[]): LoadSt
 }
 
 /**
- * カードの一覧を読み込み、追加・更新・移動・削除する処理と、サブタスクを追加する処理をまとめたカスタムフック。
+ * カードの一覧を読み込み、追加・更新・移動・削除する処理と、サブタスクを追加・更新する処理をまとめたカスタムフック。
  *
  * カスタムフック：use で始まる名前の関数の中で useState などのフックを使い、状態とその操作をまとめたもの。
  * Board（画面）からカードのデータの扱いを切り離し、Board は表示とドラッグ&ドロップに集中できるようにする。
@@ -37,6 +37,8 @@ export function useTasks() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   // 直前の保存に失敗したか。次に保存できたら false に戻す
   const [hasSaveError, setHasSaveError] = useState(false)
+  // サブタスクの保存の順番待ち。前の保存が終わってから次を送り、古い内容があとから届いて DB を上書きするのを防ぐ
+  const subtaskQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   // 画面を開いたとき（最初の表示のとき）に1回だけカードを読み込む。
   // 依存配列 [] が空なので、再表示のたびには実行されない
@@ -159,5 +161,36 @@ export function useTasks() {
     )
   }
 
-  return { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask }
+  /**
+   * サブタスクの内容と完了したかを更新する（F-22, F-26）。
+   *
+   * - チェックを押してすぐに画面に出るよう、先に一覧を書き換えてから保存する
+   * - 失敗しても画面はそのままにして、「保存できませんでした」を出す（hasSaveError）。例外は投げない
+   * - API の結果では置き換えない。続けて操作したとき、前の操作の結果があとから届いて、
+   *   画面の新しい状態を古い状態に戻してしまうため（画面のほうが最新になっている）
+   * - 保存は順番待ち（subtaskQueueRef）で1つずつ送る
+   */
+  function updateSubtask(taskId: number, id: number, fields: SubtaskFields): Promise<void> {
+    setState((prev) =>
+      updateTasks(prev, (tasks) =>
+        tasks.map((task) =>
+          task.id === taskId
+            ? { ...task, subtasks: task.subtasks.map((subtask) => (subtask.id === id ? { ...subtask, ...fields } : subtask)) }
+            : task,
+        ),
+      ),
+    )
+    const saving = subtaskQueueRef.current.then(async () => {
+      try {
+        await api.updateSubtask(taskId, id, fields)
+        setHasSaveError(false)
+      } catch {
+        setHasSaveError(true)
+      }
+    })
+    subtaskQueueRef.current = saving
+    return saving
+  }
+
+  return { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask, updateSubtask }
 }

@@ -2,11 +2,11 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeTask } from '../test/makeTask'
-import type { TaskFields } from '../types'
+import type { SubtaskFields, TaskFields } from '../types'
 import { TaskDetail } from './TaskDetail'
 
 /**
- * カードの詳細画面のテスト（docs/spec.md の F-12〜F-18）。
+ * カードの詳細画面のテスト（docs/spec.md の F-12〜F-18、サブタスクの F-21・F-22・F-26）。
  *
  * 自動保存は入力が 0.5 秒止まってから行うので、時間を自由に進められる「偽物のタイマー」（vi.useFakeTimers）を使う。
  * 本当に 0.5 秒待たなくても、vi.advanceTimersByTimeAsync(500) で時間を進められる。
@@ -28,6 +28,7 @@ describe('TaskDetail', () => {
       onSave: vi.fn<(fields: TaskFields) => Promise<void>>().mockResolvedValue(undefined),
       onDelete: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
       onAddSubtask: vi.fn<(title: string) => Promise<void>>().mockResolvedValue(undefined),
+      onUpdateSubtask: vi.fn<(id: number, fields: SubtaskFields) => Promise<void>>().mockResolvedValue(undefined),
       onClose: vi.fn<() => void>(),
     }
     // advanceTimers：userEvent が操作の合間に待つときも、偽物のタイマーを進める
@@ -132,7 +133,7 @@ describe('TaskDetail', () => {
 
     const checkboxes = screen.getAllByRole('checkbox')
     expect(checkboxes).toHaveLength(2)
-    // チェックボックスの名前は、横に表示しているサブタスクの内容（<label> で囲んでいるため）
+    // チェックボックスの名前は、横に表示しているサブタスクの内容（aria-label で付けている）
     expect(screen.getByRole('checkbox', { name: '構成を考える' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: '下書きを書く' })).not.toBeChecked()
   })
@@ -164,5 +165,79 @@ describe('TaskDetail', () => {
 
     expect(await screen.findByText('保存できませんでした')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'サブタスクの内容' })).toHaveValue('構成を考える')
+  })
+
+  /** サブタスクが2つ（完了・未完了）あるカードで詳細画面を描画する */
+  function renderWithSubtasks() {
+    return renderDetail(
+      makeTask(1, 'todo', {
+        subtasks: [
+          { id: 1, title: '構成を考える', done: true },
+          { id: 2, title: '下書きを書く', done: false },
+        ],
+      }),
+    )
+  }
+
+  test('チェックを押すと、完了・未完了を切り替えて保存する', async () => {
+    const { user, onUpdateSubtask } = renderWithSubtasks()
+
+    await user.click(screen.getByRole('checkbox', { name: '下書きを書く' }))
+    expect(onUpdateSubtask).toHaveBeenCalledWith(2, { title: '下書きを書く', done: true })
+
+    await user.click(screen.getByRole('checkbox', { name: '構成を考える' }))
+    expect(onUpdateSubtask).toHaveBeenCalledWith(1, { title: '構成を考える', done: false })
+  })
+
+  test('内容を押すと入力欄になり、Enter で前後の空白を取って保存する', async () => {
+    const { user, onUpdateSubtask } = renderWithSubtasks()
+
+    await user.click(screen.getByRole('button', { name: '下書きを書く' }))
+    const input = screen.getByRole('textbox', { name: 'サブタスクの内容を編集' })
+    expect(input).toHaveValue('下書きを書く')
+    await user.clear(input)
+    await user.type(input, '  清書する  {Enter}')
+
+    expect(onUpdateSubtask).toHaveBeenCalledTimes(1)
+    expect(onUpdateSubtask).toHaveBeenCalledWith(2, { title: '清書する', done: false })
+    // 入力欄は閉じて、文字の表示に戻る
+    expect(screen.queryByRole('textbox', { name: 'サブタスクの内容を編集' })).not.toBeInTheDocument()
+  })
+
+  test('入力欄の外をクリックしても、確定して保存する', async () => {
+    const { user, onUpdateSubtask } = renderWithSubtasks()
+
+    await user.click(screen.getByRole('button', { name: '下書きを書く' }))
+    await user.type(screen.getByRole('textbox', { name: 'サブタスクの内容を編集' }), 'き直す')
+    await user.click(screen.getByRole('textbox', { name: 'タイトル' }))
+
+    expect(onUpdateSubtask).toHaveBeenCalledTimes(1)
+    expect(onUpdateSubtask).toHaveBeenCalledWith(2, { title: '下書きを書くき直す', done: false })
+  })
+
+  test('Esc で変更を取り消し、詳細画面は閉じない', async () => {
+    const { user, onUpdateSubtask, onClose } = renderWithSubtasks()
+
+    await user.click(screen.getByRole('button', { name: '下書きを書く' }))
+    await user.type(screen.getByRole('textbox', { name: 'サブタスクの内容を編集' }), '変更{Escape}')
+
+    expect(onUpdateSubtask).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: '下書きを書く' })).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  test('内容を空にしたり、変えずに確定したりしたときは保存しない', async () => {
+    const { user, onUpdateSubtask } = renderWithSubtasks()
+
+    await user.click(screen.getByRole('button', { name: '下書きを書く' }))
+    await user.clear(screen.getByRole('textbox', { name: 'サブタスクの内容を編集' }))
+    await user.type(screen.getByRole('textbox', { name: 'サブタスクの内容を編集' }), '   {Enter}')
+    // 元の内容のまま表示される
+    expect(screen.getByRole('button', { name: '下書きを書く' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '下書きを書く' }))
+    await user.type(screen.getByRole('textbox', { name: 'サブタスクの内容を編集' }), '{Enter}')
+
+    expect(onUpdateSubtask).not.toHaveBeenCalled()
   })
 })

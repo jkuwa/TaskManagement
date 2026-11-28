@@ -1,4 +1,4 @@
-import type { Subtask, Task, TaskFields, TaskStatus } from './types'
+import type { Subtask, SubtaskFields, Task, TaskFields, TaskStatus } from './types'
 
 /**
  * API がエラーを返したときに投げる例外。
@@ -121,5 +121,18 @@ export function createSubtask(taskId: number, title: string): Promise<Subtask> {
     `/api/tasks/${taskId}/subtasks`,
     jsonBody('POST', { title }),
     'サブタスクの追加に失敗しました',
+  )
+}
+
+/**
+ * サブタスクの内容と完了したかを更新する（PUT /api/tasks/{taskId}/subtasks/{id}）。
+ * 詳細画面で完了・未完了を切り替えたとき（F-22）と、内容を書き換えたとき（F-26）に使う。
+ * 更新したサブタスクを返す。PUT なので、内容と完了したかを毎回まとめて送る。
+ */
+export function updateSubtask(taskId: number, id: number, fields: SubtaskFields): Promise<Subtask> {
+  return request<Subtask>(
+    `/api/tasks/${taskId}/subtasks/${id}`,
+    jsonBody('PUT', fields),
+    'サブタスクの更新に失敗しました',
   )
 }

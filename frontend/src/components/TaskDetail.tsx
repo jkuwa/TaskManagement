@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
-import type { Priority, Task, TaskFields } from '../types'
+import type { Priority, SubtaskFields, Task, TaskFields } from '../types'
 import { MAX_TITLE_LENGTH } from '../utils'
 import { AddForm } from './AddForm'
+import { SubtaskItem } from './SubtaskItem'
 
 /** 入力が止まってから保存するまでの時間（ミリ秒） */
 const SAVE_DELAY_MS = 500
@@ -18,6 +19,8 @@ type Props = {
   onDelete: () => Promise<void>
   /** サブタスクを追加する処理（Board から渡される）。失敗したときは例外を投げる（AddForm が「保存できませんでした」を出す） */
   onAddSubtask: (title: string) => Promise<void>
+  /** サブタスクの内容と完了したかを保存する処理（Board から渡される）。失敗しても例外は投げない */
+  onUpdateSubtask: (id: number, fields: SubtaskFields) => Promise<void>
   /** 詳細画面を閉じる処理（Board から渡される） */
   onClose: () => void
 }
@@ -40,10 +43,11 @@ type FormValues = {
  * - ［閉じる］ボタン・Esc キー・外側のクリックで閉じる
  * - ［削除］ボタンで、確認してからカードを削除する（F-18）
  * - サブタスクの一覧を表示し、［＋ サブタスクを追加］で追加できる（F-21）。
+ *   チェックで完了・未完了を切り替え（F-22）、内容を押すと書き換えられる（F-26。SubtaskItem）。
  *   サブタスクは入力欄の値（values）には持たず、Board から渡される task.subtasks をそのまま表示する
- *   （追加すると useTasks が一覧を更新し、新しい task が渡されてくる）
+ *   （追加・更新すると useTasks が一覧を更新し、新しい task が渡されてくる）
  */
-export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask, onClose }: Props) {
+export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask, onUpdateSubtask, onClose }: Props) {
   const [values, setValues] = useState<FormValues>({
     title: task.title,
     description: task.description ?? '', // ??：左が null か undefined なら右の値を使う
@@ -239,11 +243,7 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask,
             <ul className="subtask-list">
               {task.subtasks.map((subtask) => (
                 <li key={subtask.id}>
-                  <label className="subtask">
-                    {/* 完了・未完了の切り替え（F-22）はまだないので、今は表示だけにして押せなくしている */}
-                    <input type="checkbox" checked={subtask.done} disabled />
-                    <span className={subtask.done ? 'subtask-title is-done' : 'subtask-title'}>{subtask.title}</span>
-                  </label>
+                  <SubtaskItem subtask={subtask} onUpdate={(fields) => onUpdateSubtask(subtask.id, fields)} />
                 </li>
               ))}
             </ul>
