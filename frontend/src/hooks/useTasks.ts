@@ -24,19 +24,50 @@ function updateTasks(prev: LoadState, update: (tasks: Task[]) => Task[]): LoadSt
 }
 
 /**
+ * 保存に失敗して、画面と DB がずれたままになっているものを見分けるための名前。
+ * - task:<id>：カードの内容（タイトル・説明文・期限・優先度）
+ * - subtask:<id>：サブタスクの内容・完了したか
+ * - board：移動に失敗し、読み直しにも失敗した（ボードの並びが DB とずれている）
+ */
+const taskKey = (id: number) => `task:${id}`
+const subtaskKey = (id: number) => `subtask:${id}`
+const BOARD_KEY = 'board'
+
+/** set に key を足した新しい Set を返す（もう入っていれば set をそのまま返す） */
+function withKey(set: ReadonlySet<string>, key: string): ReadonlySet<string> {
+  return set.has(key) ? set : new Set(set).add(key)
+}
+
+/** set から keys を取り除いた新しい Set を返す（どれも入っていなければ set をそのまま返す） */
+function withoutKeys(set: ReadonlySet<string>, keys: string[]): ReadonlySet<string> {
+  if (!keys.some((key) => set.has(key))) return set
+  const next = new Set(set)
+  for (const key of keys) next.delete(key)
+  return next
+}
+
+/**
  * カードの一覧を読み込み、追加・更新・移動・削除する処理と、サブタスクを追加・更新・削除する処理をまとめたカスタムフック。
  *
  * カスタムフック：use で始まる名前の関数の中で useState などのフックを使い、状態とその操作をまとめたもの。
  * Board（画面）からカードのデータの扱いを切り離し、Board は表示とドラッグ&ドロップに集中できるようにする。
  *
- * - 保存に失敗したときは hasSaveError を true にする（画面に「保存できませんでした」を出すため）。次に保存できたら false に戻す
+ * - 保存に失敗したときは hasSaveError を true にする（画面に「保存できませんでした」を出すため）。
+ *   失敗には2種類あり、消すタイミングが違う
+ *   - 画面と DB がずれたままになる失敗（カードの内容の保存、サブタスクの更新）：どれが失敗したかを failedKeys に覚えておき、
+ *     同じものを保存し直せたときだけ消す。ほかの保存が成功しても消さない（ずれていることに気づけなくなるため）
+ *   - 画面と DB がずれない失敗（削除の失敗、読み直せた移動の失敗）：hasOtherError にして、次にどれかの保存が成功したら消す
+ *   - 移動の成功や読み直しで、サーバーの一覧全体で画面を置き換えたときは、画面と DB が揃うので failedKeys も全部消す
  * - 前の state をもとに新しい state を作るときは、setState((prev) => …) の形で書く。
  *   保存の結果を待っている間に別の操作で state が変わっても、最新の state をもとに更新できる
  */
 export function useTasks() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
-  // 直前の保存に失敗したか。次に保存できたら false に戻す
-  const [hasSaveError, setHasSaveError] = useState(false)
+  // 保存に失敗して、画面と DB がずれたままになっているもの（taskKey・subtaskKey・BOARD_KEY）
+  const [failedKeys, setFailedKeys] = useState<ReadonlySet<string>>(new Set())
+  // 画面と DB がずれない失敗があったか。次にどれかの保存が成功したら false に戻す
+  const [hasOtherError, setHasOtherError] = useState(false)
+  const hasSaveError = hasOtherError || failedKeys.size > 0
   // サブタスクの保存の順番待ち。前の保存が終わってから次を送り、古い内容があとから届いて DB を上書きするのを防ぐ
   const subtaskQueueRef = useRef<Promise<void>>(Promise.resolve())
 
@@ -59,6 +90,23 @@ export function useTasks() {
       ignore = true
     }
   }, [])
+
+  /** key の保存に失敗した（画面と DB がずれたままになっている）ことを覚える */
+  function markFailed(key: string) {
+    setFailedKeys((prev) => withKey(prev, key))
+  }
+
+  /** keys の保存ができた（画面と DB が揃った）。画面と DB がずれない失敗の表示も消す */
+  function markSaved(...keys: string[]) {
+    setFailedKeys((prev) => withoutKeys(prev, keys))
+    setHasOtherError(false)
+  }
+
+  /** サーバーの一覧全体で画面を置き換えた。画面と DB が揃うので、覚えていた失敗を全部消す */
+  function replaceTasks(tasks: Task[]) {
+    setState({ kind: 'success', tasks })
+    setFailedKeys(new Set())
+  }
 
   /**
    * カードを指定した列の一番下に追加する。
@@ -88,9 +136,10 @@ export function useTasks() {
           tasks.map((task) => (task.id === id ? { ...updated, subtasks: task.subtasks } : task)),
         ),
       )
-      setHasSaveError(false)
+      // 4項目をまとめて送っているので、前に失敗した内容もこれで保存できている
+      markSaved(taskKey(id))
     } catch {
-      setHasSaveError(true)
+      markFailed(taskKey(id))
     }
   }
 
@@ -98,6 +147,8 @@ export function useTasks() {
    * カードを指定した列の指定した位置へ移動する（F-19, F-20）。
    * API の結果を待つと動きが遅れて見えるので、先に画面上で並べ替えてから保存する。
    *
+   * - サブタスクの保存（subtaskQueueRef）が終わってから移動を送る。先に移動の結果が届くと、
+   *   その中のサブタスクはまだ保存前の古い状態なので、画面のチェックや内容が元に戻って見えてしまうため
    * - 保存できたら、API が返したすべてのカードで置き換える
    * - 失敗したら「保存できませんでした」を出し、サーバーから一覧を読み直して、保存されている並びに戻す。
    *   移動する前の一覧に戻すと、保存を待っている間に追加・編集したカードまで元に戻ってしまうため
@@ -112,18 +163,23 @@ export function useTasks() {
     if (task.status === target.status && currentIndex === target.index) return
 
     setState((prev) => updateTasks(prev, (tasks) => reorderTasks(tasks, id, target.status, target.index)))
+    // サブタスクの保存は失敗しても例外を投げない（updateSubtask・deleteSubtask の中で受け止める）ので、ここで止まることはない
+    await subtaskQueueRef.current
     try {
       const tasks = await api.moveTask(id, target.status, target.index)
-      setState({ kind: 'success', tasks })
-      setHasSaveError(false)
+      replaceTasks(tasks)
+      setHasOtherError(false)
     } catch {
-      setHasSaveError(true)
       try {
         const tasks = await api.fetchTasks()
-        setState({ kind: 'success', tasks })
+        // 読み直せたので画面と DB は揃っている。失敗したことだけを伝える
+        replaceTasks(tasks)
+        setHasOtherError(true)
       } catch {
         // 読み直しにも失敗したとき（バックエンドが止まっているなど）は、画面はそのままにする。
-        // 「保存できませんでした」は出ているので、利用者は再読み込みで確かめられる
+        // 画面の並びは DB とずれているので、次に移動か読み直しができるまで「保存できませんでした」を出しておく。
+        // 利用者は再読み込みで確かめられる
+        markFailed(BOARD_KEY)
       }
     }
   }
@@ -136,13 +192,16 @@ export function useTasks() {
    * 失敗したときは「保存できませんでした」を出して false を返す（詳細画面を開いたままにする）。
    */
   async function deleteTask(id: number): Promise<boolean> {
+    // 削除したカードとそのサブタスクは、保存に失敗したままでも、もう直しようがないので覚えておかない
+    const subtaskIds = state.kind === 'success' ? (state.tasks.find((t) => t.id === id)?.subtasks ?? []).map((s) => s.id) : []
     try {
       await api.deleteTask(id)
       setState((prev) => updateTasks(prev, (tasks) => tasks.filter((task) => task.id !== id)))
-      setHasSaveError(false)
+      markSaved(taskKey(id), ...subtaskIds.map(subtaskKey))
       return true
     } catch {
-      setHasSaveError(true)
+      // カードは画面にも DB にも残っているので、ずれてはいない
+      setHasOtherError(true)
       return false
     }
   }
@@ -165,7 +224,8 @@ export function useTasks() {
    * サブタスクの内容と完了したかを更新する（F-22, F-26）。
    *
    * - チェックを押してすぐに画面に出るよう、先に一覧を書き換えてから保存する
-   * - 失敗しても画面はそのままにして、「保存できませんでした」を出す（hasSaveError）。例外は投げない
+   * - 失敗しても画面はそのままにして、「保存できませんでした」を出す（hasSaveError）。例外は投げない。
+   *   画面と DB がずれたままになるので、このサブタスクを保存し直せるまでは消さない
    * - API の結果では置き換えない。続けて操作したとき、前の操作の結果があとから届いて、
    *   画面の新しい状態を古い状態に戻してしまうため（画面のほうが最新になっている）
    * - 保存は順番待ち（subtaskQueueRef）で1つずつ送る
@@ -183,9 +243,10 @@ export function useTasks() {
     const saving = subtaskQueueRef.current.then(async () => {
       try {
         await api.updateSubtask(taskId, id, fields)
-        setHasSaveError(false)
+        // 内容と完了したかをまとめて送っているので、前に失敗した内容もこれで保存できている
+        markSaved(subtaskKey(id))
       } catch {
-        setHasSaveError(true)
+        markFailed(subtaskKey(id))
       }
     })
     subtaskQueueRef.current = saving
@@ -212,9 +273,11 @@ export function useTasks() {
             ),
           ),
         )
-        setHasSaveError(false)
+        // 消えたので、このサブタスクの保存に失敗していても、もうずれはない
+        markSaved(subtaskKey(id))
       } catch {
-        setHasSaveError(true)
+        // サブタスクは画面にも DB にも残っているので、削除の失敗でずれは増えない
+        setHasOtherError(true)
       }
     })
     subtaskQueueRef.current = deleting

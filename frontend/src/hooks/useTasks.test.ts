@@ -256,6 +256,159 @@ describe('useTasks', () => {
     expect(result.current.hasSaveError).toBe(true)
   })
 
+  describe('保存に失敗したことの表示（hasSaveError）', () => {
+    const titleOnly = { title: 'タイトル', description: null, dueDate: null, priority: null }
+
+    beforeEach(() => {
+      vi.mocked(api.fetchTasks).mockResolvedValue([
+        makeTask(1, 'todo', { subtasks: [{ id: 10, title: '下書きを書く', done: false }] }),
+        makeTask(2, 'todo', { position: 1, subtasks: [{ id: 20, title: '清書する', done: false }] }),
+      ])
+    })
+
+    test('サブタスクの更新に失敗したら、ほかのカードやサブタスクの保存が成功しても消さない', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.updateSubtask).mockRejectedValueOnce(new Error('失敗')).mockResolvedValue({ id: 20, title: '清書する', done: true })
+      vi.mocked(api.updateTask).mockResolvedValue(makeTask(2, 'todo', { position: 1 }))
+
+      await act(() => result.current.updateSubtask(1, 10, { title: '下書きを書く', done: true }))
+      expect(result.current.hasSaveError).toBe(true)
+
+      await act(() => result.current.saveTask(2, titleOnly))
+      await act(() => result.current.updateSubtask(2, 20, { title: '清書する', done: true }))
+      expect(result.current.hasSaveError).toBe(true)
+    })
+
+    test('失敗したサブタスクを保存し直せたら消す', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.updateSubtask)
+        .mockRejectedValueOnce(new Error('失敗'))
+        .mockResolvedValue({ id: 10, title: '下書きを書く', done: false })
+
+      await act(() => result.current.updateSubtask(1, 10, { title: '下書きを書く', done: true }))
+      expect(result.current.hasSaveError).toBe(true)
+
+      await act(() => result.current.updateSubtask(1, 10, { title: '下書きを書く', done: false }))
+      expect(result.current.hasSaveError).toBe(false)
+    })
+
+    test('失敗したサブタスクを削除できたら消す', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.updateSubtask).mockRejectedValue(new Error('失敗'))
+      vi.mocked(api.deleteSubtask).mockResolvedValue(undefined)
+
+      await act(() => result.current.updateSubtask(1, 10, { title: '下書きを書く', done: true }))
+      await act(() => result.current.deleteSubtask(1, 10))
+
+      expect(result.current.hasSaveError).toBe(false)
+    })
+
+    test('カードの内容の保存に失敗したら、同じカードを保存し直せるまで消さない', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.updateTask)
+        .mockRejectedValueOnce(new Error('失敗'))
+        .mockResolvedValueOnce(makeTask(2, 'todo', { position: 1 }))
+        .mockResolvedValueOnce(makeTask(1, 'todo'))
+
+      await act(() => result.current.saveTask(1, titleOnly))
+      await act(() => result.current.saveTask(2, titleOnly))
+      expect(result.current.hasSaveError).toBe(true)
+
+      await act(() => result.current.saveTask(1, titleOnly))
+      expect(result.current.hasSaveError).toBe(false)
+    })
+
+    test('失敗したカードを削除できたら、そのカードとサブタスクの失敗は消す', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.updateTask).mockRejectedValue(new Error('失敗'))
+      vi.mocked(api.updateSubtask).mockRejectedValue(new Error('失敗'))
+      vi.mocked(api.deleteTask).mockResolvedValue(undefined)
+
+      await act(() => result.current.saveTask(1, titleOnly))
+      await act(() => result.current.updateSubtask(1, 10, { title: '下書きを書く', done: true }))
+      await act(async () => {
+        await result.current.deleteTask(1)
+      })
+
+      expect(result.current.hasSaveError).toBe(false)
+    })
+
+    test('削除の失敗は、次にほかの保存が成功したら消す（画面と DB はずれていないため）', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.deleteSubtask).mockRejectedValue(new Error('失敗'))
+      vi.mocked(api.updateSubtask).mockResolvedValue({ id: 20, title: '清書する', done: true })
+
+      await act(() => result.current.deleteSubtask(1, 10))
+      expect(result.current.hasSaveError).toBe(true)
+
+      await act(() => result.current.updateSubtask(2, 20, { title: '清書する', done: true }))
+      expect(result.current.hasSaveError).toBe(false)
+    })
+
+    test('移動できたら、サーバーの一覧で置き換わって画面と DB が揃うので消す', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.updateSubtask).mockRejectedValue(new Error('失敗'))
+      vi.mocked(api.moveTask).mockResolvedValue([
+        makeTask(2, 'todo', { position: 0, subtasks: [{ id: 20, title: '清書する', done: false }] }),
+        makeTask(1, 'todo', { position: 1, subtasks: [{ id: 10, title: '下書きを書く', done: false }] }),
+      ])
+
+      await act(() => result.current.updateSubtask(1, 10, { title: '下書きを書く', done: true }))
+      expect(result.current.hasSaveError).toBe(true)
+
+      await act(() => result.current.moveTask(1, { status: 'todo', index: 1 }))
+      expect(result.current.hasSaveError).toBe(false)
+    })
+
+    test('移動に失敗して読み直しにも失敗したら、次に移動できるまで消さない', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.moveTask).mockRejectedValue(new Error('失敗'))
+      vi.mocked(api.fetchTasks).mockRejectedValue(new Error('失敗'))
+      vi.mocked(api.updateSubtask).mockResolvedValue({ id: 20, title: '清書する', done: true })
+
+      await act(() => result.current.moveTask(1, { status: 'in_progress', index: 0 }))
+      await act(() => result.current.updateSubtask(2, 20, { title: '清書する', done: true }))
+
+      expect(result.current.hasSaveError).toBe(true)
+    })
+  })
+
+  test('カードの移動は、サブタスクの保存が終わってから送る', async () => {
+    vi.mocked(api.fetchTasks).mockResolvedValue([
+      makeTask(1, 'todo', { subtasks: [{ id: 10, title: '下書きを書く', done: false }] }),
+      makeTask(2, 'todo', { position: 1 }),
+    ])
+    const { result } = await renderLoaded()
+    let resolveUpdate: () => void = () => {}
+    vi.mocked(api.updateSubtask).mockReturnValue(
+      new Promise((resolve) => (resolveUpdate = () => resolve({ id: 10, title: '下書きを書く', done: true }))),
+    )
+    // 移動の結果には、サブタスクの保存が反映された状態が入っている
+    vi.mocked(api.moveTask).mockResolvedValue([
+      makeTask(2, 'todo', { position: 0 }),
+      makeTask(1, 'todo', { position: 1, subtasks: [{ id: 10, title: '下書きを書く', done: true }] }),
+    ])
+
+    let moving: Promise<void> = Promise.resolve()
+    act(() => {
+      void result.current.updateSubtask(1, 10, { title: '下書きを書く', done: true })
+    })
+    act(() => {
+      moving = result.current.moveTask(1, { status: 'todo', index: 1 })
+    })
+    // サブタスクの保存が終わるまで、移動は送らない。並びは先に画面上で変わる
+    await act(async () => {})
+    expect(api.moveTask).not.toHaveBeenCalled()
+    expect(ids(result.current.state)).toEqual([2, 1])
+
+    await act(async () => {
+      resolveUpdate()
+      await moving
+    })
+    expect(api.moveTask).toHaveBeenCalledWith(1, 'todo', 1)
+    expect(subtasksOf(result.current.state, 1)).toEqual([{ id: 10, title: '下書きを書く', done: true }])
+  })
+
   test('サブタスクの削除は、前の更新の保存が終わってから送る', async () => {
     vi.mocked(api.fetchTasks).mockResolvedValue([
       makeTask(1, 'todo', { subtasks: [{ id: 10, title: '下書きを書く', done: false }] }),
