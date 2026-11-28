@@ -1,7 +1,8 @@
+import { DndContext } from '@dnd-kit/core'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, test } from 'vitest'
 import { makeTask } from '../test/makeTask'
-import { CardContent } from './Card'
+import { Card, CardContent } from './Card'
 
 /** ボード上のカードの中身のテスト（docs/spec.md の F-17・F-24） */
 describe('CardContent', () => {
@@ -62,10 +63,43 @@ describe('CardContent', () => {
     expect(container.querySelector('.subtask-progress')).toBeNull()
   })
 
+  test('保存に失敗したままの変更がなければ、⚠ の印を出さない', () => {
+    render(<CardContent task={makeTask(1)} />)
+
+    expect(screen.queryByLabelText('保存できていない変更があります')).not.toBeInTheDocument()
+  })
+
   test('タイトルの HTML は解釈せず、文字のまま表示する（XSS 対策）', () => {
     const { container } = render(<CardContent task={makeTask(1, 'todo', { title: '<b>太字</b>' })} />)
 
     expect(screen.getByText('<b>太字</b>')).toBeInTheDocument()
     expect(container.querySelector('b')).toBeNull()
+  })
+})
+
+/** ボード上のカード1枚のテスト（保存に失敗したときの印） */
+describe('Card', () => {
+  // Card は useDraggable を使うので、DndContext の中に置いて描画する
+  function renderCard(hasUnsaved: boolean) {
+    render(
+      <DndContext>
+        <Card task={makeTask(1)} hasUnsaved={hasUnsaved} onOpen={() => {}} />
+      </DndContext>,
+    )
+    return screen.getByRole('button')
+  }
+
+  test('保存に失敗したままの変更があれば、⚠ の印と赤い枠（has-unsaved）を付ける', () => {
+    const card = renderCard(true)
+
+    expect(card).toHaveClass('has-unsaved')
+    expect(screen.getByLabelText('保存できていない変更があります')).toHaveTextContent('⚠')
+  })
+
+  test('保存に失敗したままの変更がなければ、印も枠も付けない', () => {
+    const card = renderCard(false)
+
+    expect(card).not.toHaveClass('has-unsaved')
+    expect(screen.queryByLabelText('保存できていない変更があります')).not.toBeInTheDocument()
   })
 })

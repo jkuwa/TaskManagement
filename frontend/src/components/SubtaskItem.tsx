@@ -6,6 +6,8 @@ import { MAX_TITLE_LENGTH } from '../utils'
 type Props = {
   /** 表示するサブタスク */
   subtask: Subtask
+  /** 保存に失敗したままか。true なら「⚠未保存」を付けて、どのサブタスクを直せばよいか分かるようにする */
+  isUnsaved: boolean
   /**
    * 内容と完了したかを保存する処理（TaskDetail から渡される）。失敗しても例外は投げない。
    * 画面の一覧はすぐに書き換わり、新しい subtask が渡されてくる
@@ -28,8 +30,9 @@ type Props = {
  *   - 空白だけ・空のときや、変えていないときは保存しない（元の内容のまま）
  * - ［×］を押すと、確認せずにすぐ削除する（F-23）。書き換え中に押したときは、
  *   入力欄の外をクリックしたことになるので、先に書き換えた内容を保存してから削除する（useTasks の順番待ち）
+ * - 保存に失敗したままのときは、行に「⚠未保存」を付ける
  */
-export function SubtaskItem({ subtask, onUpdate, onDelete }: Props) {
+export function SubtaskItem({ subtask, isUnsaved, onUpdate, onDelete }: Props) {
   const [isEditing, setIsEditing] = useState(false)
   // 編集中の入力欄の値
   const [draft, setDraft] = useState('')
@@ -104,6 +107,7 @@ export function SubtaskItem({ subtask, onUpdate, onDelete }: Props) {
           {subtask.title}
         </button>
       )}
+      {isUnsaved && <span className="unsaved-label">⚠未保存</span>}
       <button
         type="button"
         className="subtask-delete"

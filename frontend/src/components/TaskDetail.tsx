@@ -13,6 +13,13 @@ type Props = {
   task: Task
   /** 直前の保存に失敗したか（Board が持っている） */
   hasSaveError: boolean
+  /**
+   * カードの内容の保存に失敗したままなら、保存できなかった値（なければ undefined）。
+   * 開いたときの入力欄にはこの値を出し、最後に保存できた値（task）と違う項目に赤い枠を付ける
+   */
+  unsavedFields: TaskFields | undefined
+  /** サブタスクの保存に失敗したままか（サブタスクの行に「⚠未保存」を付けるため） */
+  isSubtaskUnsaved: (id: number) => boolean
   /** 入力した内容を保存する処理（Board から渡される）。失敗しても例外は投げない */
   onSave: (fields: TaskFields) => Promise<void>
   /** カードを削除する処理（Board から渡される）。失敗しても例外は投げない */
@@ -35,6 +42,21 @@ type FormValues = {
   priority: Priority | ''
 }
 
+/** 説明文は、空白だけなら入っていない扱い（null）にする。バックエンドも空白だけの説明文は null で保存する */
+function normalizeDescription(description: string | null): string | null {
+  return description === null || description.trim() === '' ? null : description
+}
+
+/** 保存できなかった値（unsaved）のうち、最後に保存できた値（saved）と違う項目を返す */
+function changedFields(unsaved: TaskFields, saved: TaskFields): Set<keyof TaskFields> {
+  const changed = new Set<keyof TaskFields>()
+  if (unsaved.title !== saved.title) changed.add('title')
+  if (normalizeDescription(unsaved.description) !== normalizeDescription(saved.description)) changed.add('description')
+  if (unsaved.dueDate !== saved.dueDate) changed.add('dueDate')
+  if (unsaved.priority !== saved.priority) changed.add('priority')
+  return changed
+}
+
 /**
  * カードの詳細画面（ポップアップ）。見た目は mockup/index.html の <dialog> に合わせている。
  *
@@ -44,19 +66,24 @@ type FormValues = {
  * - タイトルが空のあいだは、タイトルだけ変更前の値で保存する。空のまま閉じたら変更前のタイトルに戻る
  * - ［閉じる］ボタン・Esc キー・外側のクリックで閉じる
  * - ［削除］ボタンで、確認してからカードを削除する（F-18）
+ * - 保存に失敗したままのときは、入力欄に保存できなかった値を出し、保存できていない項目の入力欄に赤い枠を付ける
  * - サブタスクの一覧を表示し、［＋ サブタスクを追加］で追加できる（F-21）。
  *   チェックで完了・未完了を切り替え（F-22）、内容を押すと書き換えられる（F-26）、
  *   ［×］で確認せずに削除できる（F-23。SubtaskItem）。
  *   サブタスクは入力欄の値（values）には持たず、Board から渡される task.subtasks をそのまま表示する
  *   （追加・更新・削除すると useTasks が一覧を更新し、新しい task が渡されてくる）
  */
-export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask, onUpdateSubtask, onDeleteSubtask, onClose }: Props) {
+export function TaskDetail({ task, hasSaveError, unsavedFields, isSubtaskUnsaved, onSave, onDelete, onAddSubtask, onUpdateSubtask, onDeleteSubtask, onClose }: Props) {
+  // 保存に失敗したままなら、保存できなかった値から始める（開き直しても、入力した値が消えないように）
+  const initial = unsavedFields ?? task
   const [values, setValues] = useState<FormValues>({
-    title: task.title,
-    description: task.description ?? '', // ??：左が null か undefined なら右の値を使う
-    dueDate: task.dueDate ?? '',
-    priority: task.priority ?? '',
+    title: initial.title,
+    description: initial.description ?? '', // ??：左が null か undefined なら右の値を使う
+    dueDate: initial.dueDate ?? '',
+    priority: initial.priority ?? '',
   })
+  // 保存できていない項目（赤い枠を付ける）
+  const unsaved = unsavedFields === undefined ? new Set<keyof TaskFields>() : changedFields(unsavedFields, task)
 
   // useRef：再描画しても値が保たれ、変えても再描画されない入れ物。画面に出さない値を入れておく
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -192,6 +219,7 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask,
           <span className="field-label">タイトル</span>
           <input
             type="text"
+            className={unsaved.has('title') ? 'is-unsaved' : undefined}
             value={values.title}
             onChange={(event) => change({ title: event.target.value })}
             maxLength={MAX_TITLE_LENGTH}
@@ -201,6 +229,7 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask,
           <span className="field-label">説明文</span>
           <textarea
             rows={5}
+            className={unsaved.has('description') ? 'is-unsaved' : undefined}
             value={values.description}
             onChange={(event) => change({ description: event.target.value })}
             placeholder="説明を入力（任意）"
@@ -215,6 +244,7 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask,
               <input
                 id="detail-due"
                 type="date"
+                className={unsaved.has('dueDate') ? 'is-unsaved' : undefined}
                 value={values.dueDate}
                 onChange={(event) => change({ dueDate: event.target.value })}
               />
@@ -228,6 +258,7 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask,
           <label className="field">
             <span className="field-label">優先度</span>
             <select
+              className={unsaved.has('priority') ? 'is-unsaved' : undefined}
               value={values.priority}
               // select の値は文字列になるので、Priority | '' として扱う
               onChange={(event) => change({ priority: event.target.value as Priority | '' })}
@@ -248,6 +279,7 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask,
                 <li key={subtask.id}>
                   <SubtaskItem
                     subtask={subtask}
+                    isUnsaved={isSubtaskUnsaved(subtask.id)}
                     onUpdate={(fields) => onUpdateSubtask(subtask.id, fields)}
                     onDelete={() => onDeleteSubtask(subtask.id)}
                   />

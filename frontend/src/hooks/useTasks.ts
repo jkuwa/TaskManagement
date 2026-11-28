@@ -25,11 +25,10 @@ function updateTasks(prev: LoadState, update: (tasks: Task[]) => Task[]): LoadSt
 
 /**
  * 保存に失敗して、画面と DB がずれたままになっているものを見分けるための名前。
- * - task:<id>：カードの内容（タイトル・説明文・期限・優先度）
+ * （カードの内容の失敗は、保存できなかった値も覚えておくので、別に unsavedTaskFields で覚える）
  * - subtask:<id>：サブタスクの内容・完了したか
  * - board：移動に失敗し、読み直しにも失敗した（ボードの並びが DB とずれている）
  */
-const taskKey = (id: number) => `task:${id}`
 const subtaskKey = (id: number) => `subtask:${id}`
 const BOARD_KEY = 'board'
 
@@ -46,6 +45,14 @@ function withoutKeys(set: ReadonlySet<string>, keys: string[]): ReadonlySet<stri
   return next
 }
 
+/** map から key を取り除いた新しい Map を返す（入っていなければ map をそのまま返す） */
+function withoutEntry<V>(map: ReadonlyMap<number, V>, key: number): ReadonlyMap<number, V> {
+  if (!map.has(key)) return map
+  const next = new Map(map)
+  next.delete(key)
+  return next
+}
+
 /**
  * カードの一覧を読み込み、追加・更新・移動・削除する処理と、サブタスクを追加・更新・削除する処理をまとめたカスタムフック。
  *
@@ -54,20 +61,28 @@ function withoutKeys(set: ReadonlySet<string>, keys: string[]): ReadonlySet<stri
  *
  * - 保存に失敗したときは hasSaveError を true にする（画面に「保存できませんでした」を出すため）。
  *   失敗には2種類あり、消すタイミングが違う
- *   - 画面と DB がずれたままになる失敗（カードの内容の保存、サブタスクの更新）：どれが失敗したかを failedKeys に覚えておき、
- *     同じものを保存し直せたときだけ消す。ほかの保存が成功しても消さない（ずれていることに気づけなくなるため）
- *   - 画面と DB がずれない失敗（削除の失敗、読み直せた移動の失敗）：hasOtherError にして、次にどれかの保存が成功したら消す
- *   - 移動の成功や読み直しで、サーバーの一覧全体で画面を置き換えたときは、画面と DB が揃うので failedKeys も全部消す
+ *   - 画面と DB がずれたままになる失敗：どれが失敗したかを覚えておき、同じものを保存し直せたときだけ消す。
+ *     ほかの保存が成功しても消さない（ずれていることに気づけなくなるため）
+ *     - カードの内容の保存：unsavedTaskFields に、保存できなかった値をカードごとに覚える
+ *       （詳細画面を開き直したときに、入力した値と、保存できなかった項目を出すため）
+ *     - サブタスクの更新：failedKeys に覚える（サブタスクは失敗しても画面を書き換えたままにするので、値は覚えなくてよい）
+ *   - 画面と DB がずれない失敗（削除の失敗、読み直せた移動の失敗）：どのカードの失敗かを otherErrorTaskId に覚え、
+ *     次にどれかの保存が成功したら消す
+ *   - 移動の成功や読み直しで、サーバーの一覧全体で画面を置き換えたときは、画面と DB が揃うので覚えていた失敗を全部消す
+ * - 詳細画面には、そのカードの失敗があるときだけ「保存できませんでした」を出す（hasSaveErrorFor）
  * - 前の state をもとに新しい state を作るときは、setState((prev) => …) の形で書く。
  *   保存の結果を待っている間に別の操作で state が変わっても、最新の state をもとに更新できる
  */
 export function useTasks() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
-  // 保存に失敗して、画面と DB がずれたままになっているもの（taskKey・subtaskKey・BOARD_KEY）
+  // 保存に失敗して、画面と DB がずれたままになっているもの（subtaskKey・BOARD_KEY）
   const [failedKeys, setFailedKeys] = useState<ReadonlySet<string>>(new Set())
-  // 画面と DB がずれない失敗があったか。次にどれかの保存が成功したら false に戻す
-  const [hasOtherError, setHasOtherError] = useState(false)
-  const hasSaveError = hasOtherError || failedKeys.size > 0
+  // カードの内容の保存に失敗したカードの id と、保存できなかった値。
+  // 一覧（state）のカードは、最後に保存できた値のまま残る
+  const [unsavedTaskFields, setUnsavedTaskFields] = useState<ReadonlyMap<number, TaskFields>>(new Map())
+  // 画面と DB がずれない失敗があったカードの id（なければ null）。次にどれかの保存が成功したら null に戻す
+  const [otherErrorTaskId, setOtherErrorTaskId] = useState<number | null>(null)
+  const hasSaveError = otherErrorTaskId !== null || failedKeys.size > 0 || unsavedTaskFields.size > 0
   // サブタスクの保存の順番待ち。前の保存が終わってから次を送り、古い内容があとから届いて DB を上書きするのを防ぐ
   const subtaskQueueRef = useRef<Promise<void>>(Promise.resolve())
 
@@ -99,13 +114,14 @@ export function useTasks() {
   /** keys の保存ができた（画面と DB が揃った）。画面と DB がずれない失敗の表示も消す */
   function markSaved(...keys: string[]) {
     setFailedKeys((prev) => withoutKeys(prev, keys))
-    setHasOtherError(false)
+    setOtherErrorTaskId(null)
   }
 
   /** サーバーの一覧全体で画面を置き換えた。画面と DB が揃うので、覚えていた失敗を全部消す */
   function replaceTasks(tasks: Task[]) {
     setState({ kind: 'success', tasks })
     setFailedKeys(new Set())
+    setUnsavedTaskFields(new Map())
   }
 
   /**
@@ -124,6 +140,7 @@ export function useTasks() {
    * ボード上のカードにもすぐ反映される（F-17）。
    * 失敗したときは「保存できませんでした」を表示するだけで、編集はそのまま続けられる。
    * 詳細画面を閉じたあとに失敗することもあるので、例外は投げずに hasSaveError で伝える。
+   * 失敗したときは、送った値を unsavedTaskFields に覚えておく（一覧のカードは最後に保存できた値のまま）。
    */
   async function saveTask(id: number, fields: TaskFields) {
     try {
@@ -137,9 +154,11 @@ export function useTasks() {
         ),
       )
       // 4項目をまとめて送っているので、前に失敗した内容もこれで保存できている
-      markSaved(taskKey(id))
+      setUnsavedTaskFields((prev) => withoutEntry(prev, id))
+      markSaved()
     } catch {
-      markFailed(taskKey(id))
+      // 続けて失敗したときは、新しく送った値で上書きする（詳細画面の入力欄は、いつも最後に送った値になっている）
+      setUnsavedTaskFields((prev) => new Map(prev).set(id, fields))
     }
   }
 
@@ -168,13 +187,13 @@ export function useTasks() {
     try {
       const tasks = await api.moveTask(id, target.status, target.index)
       replaceTasks(tasks)
-      setHasOtherError(false)
+      setOtherErrorTaskId(null)
     } catch {
       try {
         const tasks = await api.fetchTasks()
         // 読み直せたので画面と DB は揃っている。失敗したことだけを伝える
         replaceTasks(tasks)
-        setHasOtherError(true)
+        setOtherErrorTaskId(id)
       } catch {
         // 読み直しにも失敗したとき（バックエンドが止まっているなど）は、画面はそのままにする。
         // 画面の並びは DB とずれているので、次に移動か読み直しができるまで「保存できませんでした」を出しておく。
@@ -197,11 +216,12 @@ export function useTasks() {
     try {
       await api.deleteTask(id)
       setState((prev) => updateTasks(prev, (tasks) => tasks.filter((task) => task.id !== id)))
-      markSaved(taskKey(id), ...subtaskIds.map(subtaskKey))
+      setUnsavedTaskFields((prev) => withoutEntry(prev, id))
+      markSaved(...subtaskIds.map(subtaskKey))
       return true
     } catch {
       // カードは画面にも DB にも残っているので、ずれてはいない
-      setHasOtherError(true)
+      setOtherErrorTaskId(id)
       return false
     }
   }
@@ -277,12 +297,55 @@ export function useTasks() {
         markSaved(subtaskKey(id))
       } catch {
         // サブタスクは画面にも DB にも残っているので、削除の失敗でずれは増えない
-        setHasOtherError(true)
+        setOtherErrorTaskId(taskId)
       }
     })
     subtaskQueueRef.current = deleting
     return deleting
   }
 
-  return { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask, updateSubtask, deleteSubtask }
+  /**
+   * カードの内容か、カードの中のサブタスクの保存に失敗したままか（ボードのカードに ⚠ の印を付けるため）。
+   * 移動の失敗（BOARD_KEY）はどのカードのものとも言えないので、ここには含めない
+   */
+  function hasUnsavedChanges(task: Task): boolean {
+    return unsavedTaskFields.has(task.id) || task.subtasks.some((subtask) => failedKeys.has(subtaskKey(subtask.id)))
+  }
+
+  /**
+   * カードの内容の保存に失敗したままなら、保存できなかった値を返す（なければ undefined）。
+   * 詳細画面で、入力欄にこの値を出し、最後に保存できた値（一覧のカード）と違う項目に赤い枠を付けるために使う
+   */
+  function getUnsavedFields(id: number): TaskFields | undefined {
+    return unsavedTaskFields.get(id)
+  }
+
+  /**
+   * このカードの保存の失敗があるか（詳細画面に「保存できませんでした」を出すため）。
+   * ほかのカードの失敗では true にしない（開いたカードとは関係ないのに出ると紛らわしいため）
+   */
+  function hasSaveErrorFor(task: Task): boolean {
+    return hasUnsavedChanges(task) || otherErrorTaskId === task.id
+  }
+
+  /** サブタスクの保存に失敗したままか（詳細画面のサブタスクの行に「⚠未保存」を付けるため） */
+  function isSubtaskUnsaved(id: number): boolean {
+    return failedKeys.has(subtaskKey(id))
+  }
+
+  return {
+    state,
+    hasSaveError,
+    hasUnsavedChanges,
+    hasSaveErrorFor,
+    getUnsavedFields,
+    isSubtaskUnsaved,
+    addTask,
+    saveTask,
+    moveTask,
+    deleteTask,
+    addSubtask,
+    updateSubtask,
+    deleteSubtask,
+  }
 }

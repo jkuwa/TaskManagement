@@ -360,6 +360,91 @@ describe('useTasks', () => {
       expect(result.current.hasSaveError).toBe(false)
     })
 
+    /** 今の state から、指定した id のカードを取り出す */
+    function taskOf(state: ReturnType<typeof useTasks>['state'], id: number) {
+      if (state.kind !== 'success') throw new Error('読み込めていない')
+      const task = state.tasks.find((t) => t.id === id)
+      if (task === undefined) throw new Error('カードがない')
+      return task
+    }
+
+    test('サブタスクの保存に失敗したら、そのサブタスクとカードに印を付け、保存し直せたら外す', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.updateSubtask)
+        .mockRejectedValueOnce(new Error('失敗'))
+        .mockResolvedValue({ id: 10, title: '下書きを書く', done: false })
+
+      await act(() => result.current.updateSubtask(1, 10, { title: '下書きを書く', done: true }))
+      expect(result.current.isSubtaskUnsaved(10)).toBe(true)
+      expect(result.current.isSubtaskUnsaved(20)).toBe(false)
+      expect(result.current.hasUnsavedChanges(taskOf(result.current.state, 1))).toBe(true)
+      expect(result.current.hasUnsavedChanges(taskOf(result.current.state, 2))).toBe(false)
+
+      await act(() => result.current.updateSubtask(1, 10, { title: '下書きを書く', done: false }))
+      expect(result.current.isSubtaskUnsaved(10)).toBe(false)
+      expect(result.current.hasUnsavedChanges(taskOf(result.current.state, 1))).toBe(false)
+    })
+
+    test('カードの内容の保存に失敗したら、そのカードにだけ印を付ける', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.updateTask).mockRejectedValue(new Error('失敗'))
+
+      await act(() => result.current.saveTask(1, titleOnly))
+
+      expect(result.current.hasUnsavedChanges(taskOf(result.current.state, 1))).toBe(true)
+      expect(result.current.hasUnsavedChanges(taskOf(result.current.state, 2))).toBe(false)
+      expect(result.current.isSubtaskUnsaved(10)).toBe(false)
+    })
+
+    test('カードの内容の保存に失敗したら、保存できなかった値を覚え、一覧のカードは保存できた値のままにする', async () => {
+      const { result } = await renderLoaded()
+      const fields = { title: '新しいタイトル', description: '説明', dueDate: null, priority: null }
+      vi.mocked(api.updateTask)
+        .mockRejectedValueOnce(new Error('失敗'))
+        .mockResolvedValueOnce(makeTask(1, 'todo', { title: '新しいタイトル', description: '説明' }))
+
+      await act(() => result.current.saveTask(1, fields))
+      expect(result.current.getUnsavedFields(1)).toEqual(fields)
+      expect(result.current.getUnsavedFields(2)).toBeUndefined()
+      expect(taskOf(result.current.state, 1).title).toBe('カード1')
+
+      await act(() => result.current.saveTask(1, fields))
+      expect(result.current.getUnsavedFields(1)).toBeUndefined()
+    })
+
+    test('詳細画面に出す失敗（hasSaveErrorFor）は、そのカードの失敗だけにする', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.updateTask).mockRejectedValue(new Error('失敗'))
+
+      await act(() => result.current.saveTask(1, titleOnly))
+
+      expect(result.current.hasSaveErrorFor(taskOf(result.current.state, 1))).toBe(true)
+      expect(result.current.hasSaveErrorFor(taskOf(result.current.state, 2))).toBe(false)
+    })
+
+    test('サブタスクの削除の失敗は、そのサブタスクのカードの詳細画面にだけ出す', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.deleteSubtask).mockRejectedValue(new Error('失敗'))
+
+      await act(() => result.current.deleteSubtask(1, 10))
+
+      expect(result.current.hasSaveError).toBe(true)
+      expect(result.current.hasSaveErrorFor(taskOf(result.current.state, 1))).toBe(true)
+      expect(result.current.hasSaveErrorFor(taskOf(result.current.state, 2))).toBe(false)
+    })
+
+    test('移動に失敗して読み直しにも失敗したときは、どのカードにも印を付けない（メッセージだけ出す）', async () => {
+      const { result } = await renderLoaded()
+      vi.mocked(api.moveTask).mockRejectedValue(new Error('失敗'))
+      vi.mocked(api.fetchTasks).mockRejectedValue(new Error('失敗'))
+
+      await act(() => result.current.moveTask(1, { status: 'in_progress', index: 0 }))
+
+      expect(result.current.hasSaveError).toBe(true)
+      expect(result.current.hasUnsavedChanges(taskOf(result.current.state, 1))).toBe(false)
+      expect(result.current.hasUnsavedChanges(taskOf(result.current.state, 2))).toBe(false)
+    })
+
     test('移動に失敗して読み直しにも失敗したら、次に移動できるまで消さない', async () => {
       const { result } = await renderLoaded()
       vi.mocked(api.moveTask).mockRejectedValue(new Error('失敗'))

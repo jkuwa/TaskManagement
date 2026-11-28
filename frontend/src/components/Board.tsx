@@ -51,7 +51,21 @@ function getDropTarget(event: DragMoveEvent | DragEndEvent): DropTarget | null {
  * この部品は表示と、詳細画面の開け閉め、ドラッグ&ドロップの操作だけを受け持つ。
  */
 export function Board() {
-  const { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask, updateSubtask, deleteSubtask } = useTasks()
+  const {
+    state,
+    hasSaveError,
+    hasUnsavedChanges,
+    hasSaveErrorFor,
+    getUnsavedFields,
+    isSubtaskUnsaved,
+    addTask,
+    saveTask,
+    moveTask,
+    deleteTask,
+    addSubtask,
+    updateSubtask,
+    deleteSubtask,
+  } = useTasks()
   // 詳細画面を開いているカードの id。閉じているときは null
   const [openId, setOpenId] = useState<number | null>(null)
   // ドラッグしているカードの id。ドラッグしていないときは null
@@ -137,6 +151,7 @@ export function Board() {
               tasks={groups[column.status]}
               activeId={activeId}
               dropIndex={dropTarget?.status === column.status ? dropTarget.index : null}
+              hasUnsavedChanges={hasUnsavedChanges}
               // AddForm で［追加］したとき（onAdd(title) が呼ばれたとき）に addTask が実行される
               onAdd={(title) => addTask(column.status, title)}
               // {(id) => setOpenId(id)} の略。setOpenId(id) とすると描画のたびにすぐ実行されてしまう。
@@ -150,8 +165,8 @@ export function Board() {
         */}
         <DragOverlay dropAnimation={null}>
           {activeTask && (
-            <div className="card card-overlay">
-              <CardContent task={activeTask} />
+            <div className={hasUnsavedChanges(activeTask) ? 'card card-overlay has-unsaved' : 'card card-overlay'}>
+              <CardContent task={activeTask} hasUnsaved={hasUnsavedChanges(activeTask)} />
             </div>
           )}
         </DragOverlay>
@@ -161,7 +176,10 @@ export function Board() {
           // key を変えると React は別の部品として作り直すので、別のカードを開くと入力欄が初期化される
           key={openTask.id}
           task={openTask}
-          hasSaveError={hasSaveError}
+          // 詳細画面には、開いたカードの失敗があるときだけ「保存できませんでした」を出す
+          hasSaveError={hasSaveErrorFor(openTask)}
+          unsavedFields={getUnsavedFields(openTask.id)}
+          isSubtaskUnsaved={isSubtaskUnsaved}
           onSave={(fields) => saveTask(openTask.id, fields)}
           onDelete={() => handleDelete(openTask.id)}
           onAddSubtask={(title) => addSubtask(openTask.id, title)}

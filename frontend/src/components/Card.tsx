@@ -5,6 +5,8 @@ import { PRIORITY_LABELS, formatDueDate, hasDescription } from '../utils'
 
 type Props = {
   task: Task
+  /** 保存に失敗したままの変更（カードの内容かサブタスク）があるか。あれば ⚠ と赤い枠を付ける */
+  hasUnsaved: boolean
   /** カードをクリックしたときの処理（詳細画面を開く） */
   onOpen: () => void
 }
@@ -14,8 +16,9 @@ type Props = {
  * タイトルと、設定されている項目（優先度・期限・説明文アイコン）だけを表示する。
  * クリック（またはキーボードで選んで Enter / スペース）で詳細画面を開く。
  * マウスでドラッグすると、別の列や同じ列の別の位置へ動かせる（F-19, F-20）。
+ * 保存に失敗したままの変更があるときは、⚠ と赤い枠を付けて、どのカードを直せばよいか分かるようにする。
  */
-export function Card({ task, onOpen }: Props) {
+export function Card({ task, hasUnsaved, onOpen }: Props) {
   // useDraggable：この要素をドラッグできるようにする（dnd-kit）
   // - setNodeRef：ドラッグできる要素を dnd-kit に教えるための ref
   // - attributes：読み上げソフト向けの属性（role・tabIndex・aria-* など）
@@ -43,7 +46,8 @@ export function Card({ task, onOpen }: Props) {
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={isDragging ? 'card is-dragging' : 'card'}
+      // 保存に失敗したままの変更があれば has-unsaved を足して、赤い枠を付ける
+      className={['card', isDragging && 'is-dragging', hasUnsaved && 'has-unsaved'].filter(Boolean).join(' ')}
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
       role="button"
       tabIndex={0}
@@ -51,7 +55,7 @@ export function Card({ task, onOpen }: Props) {
       onClick={onOpen}
       onKeyDown={handleKeyDown}
     >
-      <CardContent task={task} />
+      <CardContent task={task} hasUnsaved={hasUnsaved} />
     </div>
   )
 }
@@ -61,7 +65,7 @@ export function Card({ task, onOpen }: Props) {
  * サブタスクがあるときは、進み具合（完了の数/全部の数）も表示する（F-24）。
  * ボード上のカードと、ドラッグ中にマウスについてくるカード（Board の DragOverlay）の両方で使う。
  */
-export function CardContent({ task }: { task: Task }) {
+export function CardContent({ task, hasUnsaved = false }: { task: Task; hasUnsaved?: boolean }) {
   const showDescIcon = hasDescription(task.description)
   const subtaskTotal = task.subtasks.length
   const subtaskDone = task.subtasks.filter((subtask) => subtask.done).length
@@ -69,7 +73,14 @@ export function CardContent({ task }: { task: Task }) {
 
   return (
     <>
-      <p className="card-title">{task.title}</p>
+      <div className="card-heading">
+        <p className="card-title">{task.title}</p>
+        {hasUnsaved && (
+          <span className="unsaved-icon" title="保存できていない変更があります" aria-label="保存できていない変更があります">
+            ⚠
+          </span>
+        )}
+      </div>
       {hasMeta && (
         <div className="card-meta">
           {task.priority && (
