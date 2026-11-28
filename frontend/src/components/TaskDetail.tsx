@@ -13,6 +13,8 @@ type Props = {
   task: Task
   /** 直前の保存に失敗したか（Board が持っている） */
   hasSaveError: boolean
+  /** サブタスクの保存に失敗したままか（サブタスクの行に「⚠未保存」を付けるため） */
+  isSubtaskUnsaved: (id: number) => boolean
   /** 入力した内容を保存する処理（Board から渡される）。失敗しても例外は投げない */
   onSave: (fields: TaskFields) => Promise<void>
   /** カードを削除する処理（Board から渡される）。失敗しても例外は投げない */
@@ -50,7 +52,7 @@ type FormValues = {
  *   サブタスクは入力欄の値（values）には持たず、Board から渡される task.subtasks をそのまま表示する
  *   （追加・更新・削除すると useTasks が一覧を更新し、新しい task が渡されてくる）
  */
-export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask, onUpdateSubtask, onDeleteSubtask, onClose }: Props) {
+export function TaskDetail({ task, hasSaveError, isSubtaskUnsaved, onSave, onDelete, onAddSubtask, onUpdateSubtask, onDeleteSubtask, onClose }: Props) {
   const [values, setValues] = useState<FormValues>({
     title: task.title,
     description: task.description ?? '', // ??：左が null か undefined なら右の値を使う
@@ -248,6 +250,7 @@ export function TaskDetail({ task, hasSaveError, onSave, onDelete, onAddSubtask,
                 <li key={subtask.id}>
                   <SubtaskItem
                     subtask={subtask}
+                    isUnsaved={isSubtaskUnsaved(subtask.id)}
                     onUpdate={(fields) => onUpdateSubtask(subtask.id, fields)}
                     onDelete={() => onDeleteSubtask(subtask.id)}
                   />

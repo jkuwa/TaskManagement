@@ -284,5 +284,30 @@ export function useTasks() {
     return deleting
   }
 
-  return { state, hasSaveError, addTask, saveTask, moveTask, deleteTask, addSubtask, updateSubtask, deleteSubtask }
+  /**
+   * カードの内容か、カードの中のサブタスクの保存に失敗したままか（ボードのカードに ⚠ の印を付けるため）。
+   * 移動の失敗（BOARD_KEY）はどのカードのものとも言えないので、ここには含めない
+   */
+  function hasUnsavedChanges(task: Task): boolean {
+    return failedKeys.has(taskKey(task.id)) || task.subtasks.some((subtask) => failedKeys.has(subtaskKey(subtask.id)))
+  }
+
+  /** サブタスクの保存に失敗したままか（詳細画面のサブタスクの行に「⚠未保存」を付けるため） */
+  function isSubtaskUnsaved(id: number): boolean {
+    return failedKeys.has(subtaskKey(id))
+  }
+
+  return {
+    state,
+    hasSaveError,
+    hasUnsavedChanges,
+    isSubtaskUnsaved,
+    addTask,
+    saveTask,
+    moveTask,
+    deleteTask,
+    addSubtask,
+    updateSubtask,
+    deleteSubtask,
+  }
 }

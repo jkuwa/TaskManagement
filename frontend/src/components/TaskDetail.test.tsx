@@ -20,11 +20,18 @@ describe('TaskDetail', () => {
     vi.restoreAllMocks()
   })
 
-  /** 詳細画面を描画する。onSave などはテスト用の関数（vi.fn）にする */
-  function renderDetail(task = makeTask(1, 'todo', { title: '資料を作る', priority: 'high', dueDate: '2026-11-20' })) {
+  /**
+   * 詳細画面を描画する。onSave などはテスト用の関数（vi.fn）にする。
+   * unsavedSubtaskIds：保存に失敗したままにしておくサブタスクの id
+   */
+  function renderDetail(
+    task = makeTask(1, 'todo', { title: '資料を作る', priority: 'high', dueDate: '2026-11-20' }),
+    unsavedSubtaskIds: number[] = [],
+  ) {
     const props = {
       task,
       hasSaveError: false,
+      isSubtaskUnsaved: (id: number) => unsavedSubtaskIds.includes(id),
       onSave: vi.fn<(fields: TaskFields) => Promise<void>>().mockResolvedValue(undefined),
       onDelete: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
       onAddSubtask: vi.fn<(title: string) => Promise<void>>().mockResolvedValue(undefined),
@@ -137,6 +144,22 @@ describe('TaskDetail', () => {
     // チェックボックスの名前は、横に表示しているサブタスクの内容（aria-label で付けている）
     expect(screen.getByRole('checkbox', { name: '構成を考える' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: '下書きを書く' })).not.toBeChecked()
+  })
+
+  test('保存に失敗したままのサブタスクの行にだけ「⚠未保存」を付ける', () => {
+    renderDetail(
+      makeTask(1, 'todo', {
+        subtasks: [
+          { id: 1, title: '構成を考える', done: true },
+          { id: 2, title: '下書きを書く', done: false },
+        ],
+      }),
+      [1],
+    )
+
+    const items = screen.getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('⚠未保存')
+    expect(items[1]).not.toHaveTextContent('⚠未保存')
   })
 
   test('サブタスクがないときは一覧を出さず、［＋ サブタスクを追加］だけを表示する', () => {

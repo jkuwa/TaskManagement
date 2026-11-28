@@ -12,6 +12,8 @@ type Props = {
   activeId: number | null
   /** ドラッグ中に、この列でカードが入る位置（線を出す位置）。この列の上にないときは null */
   dropIndex: number | null
+  /** カードに保存に失敗したままの変更があるか（Card に ⚠ の印を付けるため） */
+  hasUnsavedChanges: (task: Task) => boolean
   /** この列にカードを追加する処理。失敗したときは例外を投げる */
   onAdd: (title: string) => Promise<void>
   /** カードの詳細画面を開く処理 */
@@ -19,7 +21,7 @@ type Props = {
 }
 
 /** ボードの列1つ（未着手・進行中・完了のどれか） */
-export function Column({ status, label, tasks, activeId, dropIndex, onAdd, onOpen }: Props) {
+export function Column({ status, label, tasks, activeId, dropIndex, hasUnsavedChanges, onAdd, onOpen }: Props) {
   // useDroppable：この要素の上にカードを落とせるようにする（dnd-kit）
   // id に status を使うので、Board ではどの列の上にいるかが over.id で分かる
   const { setNodeRef } = useDroppable({ id: status })
@@ -34,7 +36,7 @@ export function Column({ status, label, tasks, activeId, dropIndex, onAdd, onOpe
       count++
     }
     // key：React が一覧のどの要素がどのカードかを見分けるための値。id を使う
-    items.push(<Card key={task.id} task={task} onOpen={() => onOpen(task.id)} />)
+    items.push(<Card key={task.id} task={task} hasUnsaved={hasUnsavedChanges(task)} onOpen={() => onOpen(task.id)} />)
   }
   // 一番下に入るとき
   if (count === dropIndex) items.push(<DropIndicator key="indicator" />)
