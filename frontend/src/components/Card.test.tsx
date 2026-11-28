@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { makeTask } from '../test/makeTask'
 import { CardContent } from './Card'
 
-/** ボード上のカードの中身のテスト（docs/spec.md の F-17） */
+/** ボード上のカードの中身のテスト（docs/spec.md の F-17・F-24） */
 describe('CardContent', () => {
   test('期限・優先度・説明文がないときは、タイトルだけを表示する', () => {
     const { container } = render(<CardContent task={makeTask(1)} />)
@@ -29,6 +29,37 @@ describe('CardContent', () => {
     render(<CardContent task={makeTask(1, 'todo', { description: '  \n ' })} />)
 
     expect(screen.queryByLabelText('説明文あり')).not.toBeInTheDocument()
+  })
+
+  test('サブタスクの進み具合（完了の数/全部の数）を表示する（F-24）', () => {
+    const subtasks = [
+      { id: 1, title: 'a', done: true },
+      { id: 2, title: 'b', done: false },
+      { id: 3, title: 'c', done: false },
+    ]
+    render(<CardContent task={makeTask(1, 'todo', { subtasks })} />)
+
+    const progress = screen.getByLabelText('サブタスク 3件中1件完了')
+    expect(progress).toHaveTextContent('1/3')
+    expect(progress).not.toHaveClass('is-complete')
+  })
+
+  test('サブタスクが全部完了したら、進み具合の色を変える（F-24）', () => {
+    const subtasks = [
+      { id: 1, title: 'a', done: true },
+      { id: 2, title: 'b', done: true },
+    ]
+    render(<CardContent task={makeTask(1, 'todo', { subtasks })} />)
+
+    const progress = screen.getByLabelText('サブタスク 2件中2件完了')
+    expect(progress).toHaveTextContent('2/2')
+    expect(progress).toHaveClass('is-complete')
+  })
+
+  test('サブタスクが0件なら、進み具合を表示しない（F-24）', () => {
+    const { container } = render(<CardContent task={makeTask(1)} />)
+
+    expect(container.querySelector('.subtask-progress')).toBeNull()
   })
 
   test('タイトルの HTML は解釈せず、文字のまま表示する（XSS 対策）', () => {

@@ -58,11 +58,14 @@ export function Card({ task, onOpen }: Props) {
 
 /**
  * カードの中身（タイトルと、設定されている項目）。
+ * サブタスクがあるときは、進み具合（完了の数/全部の数）も表示する（F-24）。
  * ボード上のカードと、ドラッグ中にマウスについてくるカード（Board の DragOverlay）の両方で使う。
  */
 export function CardContent({ task }: { task: Task }) {
   const showDescIcon = hasDescription(task.description)
-  const hasMeta = task.priority !== null || task.dueDate !== null || showDescIcon
+  const subtaskTotal = task.subtasks.length
+  const subtaskDone = task.subtasks.filter((subtask) => subtask.done).length
+  const hasMeta = task.priority !== null || task.dueDate !== null || subtaskTotal > 0 || showDescIcon
 
   return (
     <>
@@ -73,6 +76,16 @@ export function CardContent({ task }: { task: Task }) {
             <span className={`badge badge-${task.priority}`}>{PRIORITY_LABELS[task.priority]}</span>
           )}
           {task.dueDate && <span className="due">{formatDueDate(task.dueDate)}</span>}
+          {/* サブタスクが0件のときは出さない。全部完了したら is-complete で色を変える */}
+          {subtaskTotal > 0 && (
+            <span
+              className={subtaskDone === subtaskTotal ? 'subtask-progress is-complete' : 'subtask-progress'}
+              title="サブタスクの進み具合"
+              aria-label={`サブタスク ${subtaskTotal}件中${subtaskDone}件完了`}
+            >
+              ☑ {subtaskDone}/{subtaskTotal}
+            </span>
+          )}
           {showDescIcon && (
             <span className="desc-icon" title="説明文あり" aria-label="説明文あり">
               ≡
